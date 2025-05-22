@@ -1,17 +1,77 @@
+import numpy as np
 import streamlit as st
+import tensorflow as tf
 from PIL import Image
 
-# Assuming you have your ML model loading and prediction logic
-# You'll need to replace these with your actual model loading and prediction functions.
-# The 'predict_plant_and_disease' function should return both the plant type
-# and the disease/health status.
-# For example:
-# from your_ml_model_file import load_model, predict_plant_and_disease
-
+# --- Streamlit Page Configuration ---
 st.set_page_config(
     page_title="AgroDetect: Aplikasi Identifikasi Hama dan Penyakit Daun",
-    # icon_image="path/to/your/icon.png",
+    # icon_image="path/to/your/icon.png"
 )
+
+# --- Configuration ---
+MODEL_PATH = "best_model.keras"
+
+
+# --- Load the Model ---
+@st.cache_resource
+def load_ml_model():
+    try:
+        model = tf.keras.models.load_model(MODEL_PATH)
+        return model
+    except Exception as e:
+        st.error(f"Error loading the ML model from '{MODEL_PATH}': {e}")
+        st.stop()
+
+
+model = load_ml_model()
+
+# --- Define Class Names ---
+# You need to know the order of classes your model was trained on.
+CLASS_NAMES = [
+    "Pepper_bell__Bacterial_spot",
+    "Pepper_bell__healthy",
+    "Potato_Early_blight",
+    "Potato_Late_blight",
+    "Potato_healthy",
+    "Tomato_Bacterial_spot",
+    "Tomato_Early_blight",
+    "Tomato_Late_blight",
+    "Tomato_Leaf_Mold",
+    "Tomato_Septoria_leaf_spot",
+    "Tomato_Spider_mites_Two_spotted_mite",
+    "Tomato_Target_Spot",
+    "Tomato_Tomato_Yellow_Leaf_Curl_Virus",
+    "Tomato_Tomato_mosaic_virus",
+    "Tomato_healthy",
+]
+
+
+# --- Preprocessing Function ---
+def preprocess_image(image):
+    # Ensure the image is in RGB format
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+
+    # Resize the image to the target size expected by your model
+    target_size = (128, 128)  # model's input size
+    image = image.resize(target_size)
+
+    # Convert the image to a NumPy array
+    img_array = np.array(image)
+
+    # Normalize the pixel values (e.g., to 0-1 range if your model expects it)
+    # This step is critical and depends on how your model was trained.
+    # Common normalization: img_array = img_array / 255.0
+    img_array = img_array / 255.0  # Example normalization
+
+    # Add an extra dimension for the batch (model expects a batch of images)
+    # Input shape will be (1, height, width, channels)
+    img_array = np.expand_dims(img_array, axis=0)
+    return img_array
+
+
+# --- Streamlit Application Content ---
 
 st.title("AgroDetect: Aplikasi Identifikasi Hama dan Penyakit Daun")
 st.markdown(
@@ -44,77 +104,43 @@ if uploaded_file is not None:
     st.image(image, caption="Gambar yang Diunggah", use_container_width=True)
 
     if st.button("Lakukan Identifikasi"):
-        st.write("Menganalisis gambar...")
+        with st.spinner("Menganalisis gambar..."):
+            try:
+                # Preprocess the image
+                processed_image = preprocess_image(image)
 
-        try:
-            # --- MODEL PREDICTION LOGIC ---
-            # This is where your actual ML model integration goes.
-            # You will need a function (e.g., predict_plant_and_disease)
-            # that takes the processed image and returns both the plant type
-            # and the predicted condition (healthy, disease, or pest).
+                # Make prediction
+                predictions = model.predict(processed_image)
 
-            # Example: Preprocess the image for your model (resize, normalize, etc.)
-            # processed_image = preprocess_image(image)
+                # Get the predicted class (index with highest probability)
+                predicted_class_index = np.argmax(predictions, axis=1)[0]
+                predicted_class_name = CLASS_NAMES[predicted_class_index]
+                confidence = predictions[0][predicted_class_index] * 100
 
-            # Example: Make prediction using your ML model
-            # plant_type, condition = predict_plant_and_disease(processed_image)
-
-            # For demonstration, let's use dummy values that simulate a model output
-            # In a real application, these would come from your ML model's prediction.
-            # Your model would ideally predict one of these combinations:
-            # ("Paprika", "Sehat"), ("Tomat", "Penyakit Bercak Daun"), ("Kentang", "Hama Kutu Daun"), etc.
-
-            # This is a placeholder. Your actual model would determine these values.
-            dummy_plant_type = "Tidak Diketahui"
-            dummy_condition = "Belum Teridentifikasi"
-
-            # Simulate a simple prediction for demonstration
-            # In a real scenario, the model would analyze the image
-            # to determine both plant type and condition.
-            if (
-                "pepper" in uploaded_file.name.lower()
-                or "paprika" in uploaded_file.name.lower()
-            ):
-                dummy_plant_type = "Paprika"
-                dummy_condition = "Sehat (Simulasi)"
-            elif (
-                "tomato" in uploaded_file.name.lower()
-                or "tomat" in uploaded_file.name.lower()
-            ):
-                dummy_plant_type = "Tomat"
-                dummy_condition = "Penyakit Bercak Daun (Simulasi)"
-            elif (
-                "potato" in uploaded_file.name.lower()
-                or "kentang" in uploaded_file.name.lower()
-            ):
-                dummy_plant_type = "Kentang"
-                dummy_condition = "Hama Kutu Daun (Simulasi)"
-            else:
-                dummy_condition = (
-                    "Kondisi Tidak Diketahui (Model belum dilatih untuk ini)"
-                )
-
-            st.subheader("Hasil Identifikasi:")
-            if dummy_plant_type != "Tidak Diketahui":
-                st.success(f"Jenis Tanaman: {dummy_plant_type}")
-            else:
+                st.subheader("Hasil Identifikasi:")
+                st.success(f"**Identifikasi:** {predicted_class_name}")
+                st.info(f"**Keyakinan Model:** {confidence:.2f}%")
                 st.info(
-                    "Jenis Tanaman: Tidak dapat dikenali secara otomatis (model perlu dilatih lebih lanjut untuk ini)"
+                    "Klasifikasi ini didasarkan pada analisis fitur visual dari foto yang diunggah pengguna, seperti pola bercak dan perubahan warna, untuk identifikasi dini yang akurat dan cepat."
                 )
 
-            st.success(f"Kondisi Daun: {dummy_condition}")
-            st.info(
-                "Klasifikasi ini didasarkan pada analisis fitur visual dari foto yang diunggah pengguna, seperti pola bercak dan perubahan warna, untuk identifikasi dini yang akurat dan cepat."
-            )
+                st.write("---")
+                st.subheader("Detail Prediksi (Probabilitas per Kelas):")
+                # Display all class probabilities for more transparency
+                for i, prob in enumerate(predictions[0]):
+                    st.write(f"- {CLASS_NAMES[i]}: {prob * 100:.2f}%")
 
-        except Exception as e:
-            st.error(f"Terjadi kesalahan saat memproses gambar: {e}")
-            st.info(
-                "Pastikan Anda telah mengintegrasikan model Machine Learning dengan benar dan model mampu memprediksi jenis tanaman secara otomatis."
-            )
+            except Exception as e:
+                st.error(
+                    f"Terjadi kesalahan saat memproses gambar atau memprediksi: {e}"
+                )
+                st.info(
+                    "Pastikan gambar yang diunggah sesuai dan model Anda sudah dilatih dengan benar."
+                )
 
-# --- Footer (Optional) ---
+# --- Footer ---
 st.markdown("---")
+st.markdown("Ditenagai oleh Laskar Ai, Ai Merdeka Lintasarta, NVIDIA, dan Dicoding.")
 st.markdown("ID Grup: LAI25-RM097")
 st.markdown("Anggota Grup:")
 st.markdown("1. A180YBF358 - Mukhamad Ikhsanudin - Universitas Airlangga")
