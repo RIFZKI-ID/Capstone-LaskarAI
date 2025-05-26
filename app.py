@@ -219,4 +219,8 @@ st.markdown(
     </div>
     """,
     unsafe_allow_html=True,
+<<<<<<< HEAD
 )
+=======
+)
+>>>>>>> db4dcfbd12e11b312ddd5e3294663a94333b640e
