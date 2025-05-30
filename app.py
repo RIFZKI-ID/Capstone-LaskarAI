@@ -294,7 +294,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center; color: #777; font-size: 0.9em;">
-        © 2024 Tim Capstone Laskar AI (LAI25-RM097)
+        © 2025 Tim Capstone Laskar AI (LAI25-RM097)
     </div>
     <br>
     """,
