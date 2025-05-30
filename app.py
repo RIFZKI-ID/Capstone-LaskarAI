@@ -203,21 +203,3 @@ if uploaded_file is not None:
                 )
 
 # --- Footer ---
-st.markdown("---")
-st.markdown(
-    """
-    <div style="text-align: center; color: #888;">
-        <p>Ditenagai oleh Laskar Ai, Ai Merdeka Lintasarta, NVIDIA, dan Dicoding.</p>
-        <p>ID Grup: LAI25-RM097</p>
-        <p>Anggota Grup:</p>
-        <ul style="list-style-type: none; padding: 0;">
-            <li>A180YBF358 - Mukhamad Ikhsanudin - Universitas Airlangga</li>
-            <li>A706YBF391 - Patuh Rujhan Al Istizhar - Universitas Swadaya Gunung Jati</li>
-            <li>A573YBF408 - Rahmat Hidayat - Universitas Lancang Kuning</li>
-            <li>A314YBF428 - Rifzki Adiyaksa - Universitas Singaperbangsa Karawang</li>
-        </ul>
-    </div>
-    """,
-    unsafe_allow_html=True,
-<<<<<<< HEAD
-)
