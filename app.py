@@ -226,6 +226,16 @@ light_theme_css_vars = """
     --button-secondary-text-color: #555;
     --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     --box-shadow-light: 0 1px 3px rgba(0,0,0,0.05);
+    --nav-button-bg: var(--secondary-background-color);
+    --nav-button-text: var(--secondary-text-color);
+    --nav-button-border: var(--border-color);
+    --nav-button-hover-bg: var(--primary-hover-color);
+    --nav-button-hover-text: var(--button-text-color);
+    --nav-button-active-bg: var(--primary-color);
+    --nav-button-active-text: var(--button-text-color);
+    --theme-button-bg: var(--secondary-background-color);
+    --theme-button-text: var(--secondary-text-color);
+    --theme-button-border: var(--border-color);
 """
 
 dark_theme_css_vars = """
@@ -244,6 +254,16 @@ dark_theme_css_vars = """
     --button-secondary-text-color: #e2e8f0;
     --box-shadow: 0 2px 4px rgba(0,0,0,0.4);
     --box-shadow-light: 0 1px 3px rgba(0,0,0,0.2);
+    --nav-button-bg: var(--secondary-background-color);
+    --nav-button-text: var(--secondary-text-color);
+    --nav-button-border: var(--border-color);
+    --nav-button-hover-bg: var(--primary-hover-color);
+    --nav-button-hover-text: var(--button-text-color);
+    --nav-button-active-bg: var(--primary-color);
+    --nav-button-active-text: var(--button-text-color);
+    --theme-button-bg: var(--secondary-background-color);
+    --theme-button-text: var(--secondary-text-color);
+    --theme-button-border: var(--border-color);
 """
 
 if 'theme' not in st.session_state:
@@ -256,47 +276,52 @@ st.markdown(f"""
     :root {{
         {current_theme_vars}
     }}
+    body {{ /* Terapkan ke body untuk konsistensi font */
+        font-family: 'Arial', sans-serif; /* Contoh font, bisa diganti */
+    }}
     .stApp {{
         background-color: var(--background-color);
         color: var(--text-color);
     }}
-    .stRadio {{
-        display: flex;
-        justify-content: center;
-        margin-bottom: 2rem;
-        padding: 0.5rem;
-        background-color: var(--secondary-background-color);
+    /* Navigasi Horizontal menggunakan st.columns dan st.button */
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"] > div[data-testid="stButton"] > button {{
+        background-color: var(--nav-button-bg);
+        color: var(--nav-button-text);
+        border: 1px solid var(--nav-button-border);
+        padding: 0.4rem 0.8rem; /* Padding lebih kecil untuk tombol navigasi */
         border-radius: 8px;
+        margin: 0 2px; /* Jarak antar tombol navigasi */
+        font-weight: normal; /* Reset font weight */
         box-shadow: var(--box-shadow-light);
     }}
-    .stRadio > label {{ display: none; }}
-    .stRadio > div[role="radiogroup"] {{
-        display: flex;
-        flex-direction: row !important;
-        gap: 5px;
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"] > div[data-testid="stButton"] > button:hover {{
+        background-color: var(--nav-button-hover-bg);
+        color: var(--nav-button-hover-text);
+        border-color: var(--nav-button-hover-bg);
     }}
-    .stRadio div[data-baseweb="radio"] label div:first-child {{
-        padding: 0.5rem 1.5rem !important;
-        border: 1px solid var(--border-color) !important;
-        background-color: var(--secondary-background-color) !important;
-        color: var(--secondary-text-color) !important;
-        border-radius: 8px !important;
-        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-        box-shadow: none !important;
+    /* Styling untuk tombol navigasi yang aktif (sedikit tricky tanpa state langsung) */
+    /* Kita bisa menambahkan class khusus jika menggunakan HTML atau komponen custom */
+    /* Untuk sekarang, ini adalah styling umum tombol nav */
+
+    /* Tombol Tema (khusus untuk tombol tema agar bisa berbeda jika diinginkan) */
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"][style*="align-items: flex-end;"] > div[data-testid="stButton"] > button {{
+        background-color: var(--theme-button-bg);
+        color: var(--theme-button-text);
+        border: 1px solid var(--theme-button-border);
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        box-shadow: var(--box-shadow-light);
+        min-width: 50px; /* Agar tombol ikon tidak terlalu kecil */
+        text-align: center;
     }}
-    .stRadio div[data-baseweb="radio"] label div:first-child:hover {{
-        background-color: var(--primary-hover-color) !important;
-        color: var(--button-text-color) !important;
-        border-color: var(--primary-hover-color) !important;
+     div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"][style*="align-items: flex-end;"] > div[data-testid="stButton"] > button:hover {{
+        background-color: var(--nav-button-hover-bg); /* Bisa sama dengan hover tombol nav */
+        color: var(--nav-button-hover-text);
+        border-color: var(--nav-button-hover-bg);
     }}
-    .stRadio div[data-baseweb="radio"] input:checked + div {{
-        background-color: var(--primary-color) !important;
-        color: var(--button-text-color) !important;
-        border-color: var(--primary-color) !important;
-        font-weight: bold;
-    }}
-    .stRadio div[data-baseweb="radio"] label span {{ display: none !important; }}
-    .stButton>button {{
+
+
+    .stButton>button {{ /* Tombol identifikasi & bersihkan */
         background-color: var(--primary-color);
         color: var(--button-text-color);
         border-radius: 8px; padding: 10px 20px; border: none;
@@ -312,7 +337,7 @@ st.markdown(f"""
         outline: none !important;
         box-shadow: 0 0 0 0.2rem var(--primary-color) !important;
     }}
-    .stButton button[kind="secondary"] {{
+    .stButton button[kind="secondary"] {{ /* Tombol Bersihkan */
         background-color: var(--button-secondary-bg);
         color: var(--button-secondary-text-color);
         border: 1px solid var(--border-color);
@@ -321,14 +346,14 @@ st.markdown(f"""
         background-color: var(--button-secondary-hover-bg);
         color: var(--button-secondary-text-color);
     }}
-    .title-app {{ color: var(--primary-color); text-align: center; font-weight: bold; margin-bottom: 0.5rem; }}
+    .title-app {{ color: var(--primary-color); text-align: center; font-weight: bold; margin-bottom: 0.5rem; font-size: 2.5em;}}
     .subtitle-app {{ text-align: center; color: var(--secondary-text-color); margin-bottom: 2rem; }}
     .expander-custom {{
         border: 1px solid var(--border-color); border-radius: 8px; padding: 15px;
         background-color: var(--secondary-background-color);
         box-shadow: var(--box-shadow-light); margin-bottom: 1rem;
     }}
-    .stFileUploader label {{ font-weight: bold; color: var(--text-color); }}
+    .stFileUploader > label {{ font-weight: bold; color: var(--text-color); margin-bottom: 0.5rem;}}
     .stImage > img {{ border-radius: 8px; box-shadow: var(--box-shadow); }}
     .info-box {{
         background-color: var(--info-box-bg); border-left: 5px solid var(--info-box-border);
@@ -340,30 +365,43 @@ st.markdown(f"""
     div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stExpander"] {{
         background-color: var(--secondary-background-color);
     }}
-    h3 {{ color: var(--primary-color); }}
+    h3 {{ color: var(--primary-color); }} /* Untuk "Hasil Identifikasi:" */
 </style>
 """, unsafe_allow_html=True)
 
+# --- State untuk halaman aktif ---
+if 'active_page' not in st.session_state:
+    st.session_state.active_page = "🏡 Identifikasi Tanaman"
+
 # --- Navigasi Horizontal ---
-col_nav1, col_nav2, col_nav3 = st.columns([0.15, 0.7, 0.15])
+nav_cols = st.columns([0.1, 0.22, 0.22, 0.22, 0.1, 0.15]) # Disesuaikan untuk logo dan tombol tema
 
-with col_nav1:
-    st.image("https://emojigraph.org/media/apple/leafy-green_1f96c.png", width=50)
+with nav_cols[0]:
+    st.image("https://emojigraph.org/media/apple/leafy-green_1f96c.png", width=40) # Ukuran logo disesuaikan
 
-with col_nav2:
-    page_selection = st.radio(
-        "Navigasi:",
-        ["🏡 Identifikasi Tanaman", "ℹ️ Tentang AgroDetect", "👥 Detail Proyek"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
+nav_options = ["🏡 Identifikasi Tanaman", "ℹ️ Tentang AgroDetect", "👥 Detail Proyek"]
+nav_icons = ["🌿", "💡", "👥"] # Ikon opsional, bisa juga string
 
-with col_nav3:
-    if st.button(f"Mode {'Gelap' if st.session_state.theme == 'Light' else 'Terang'}", key="theme_button", use_container_width=True):
+for i, option in enumerate(nav_options):
+    with nav_cols[i+1]: # Mulai dari kolom kedua untuk tombol navigasi
+        # Menambahkan style pada tombol aktif
+        button_type = "primary" if st.session_state.active_page == option else "secondary"
+        # CSS trick untuk mengubah tampilan tombol 'secondary' agar seperti tombol navigasi kita
+        # Ini tidak ideal tapi salah satu cara tanpa komponen custom
+        if st.button(option, key=f"nav_{i}", use_container_width=True): #, type=button_type
+            st.session_state.active_page = option
+            st.rerun() # Rerun untuk memperbarui konten halaman
+
+with nav_cols[-1]: # Kolom terakhir untuk tombol tema
+    theme_icon = "🌙" if st.session_state.theme == 'Light' else "☀️"
+    if st.button(theme_icon, key="theme_button_icon", help=f"Ganti ke Mode {'Gelap' if st.session_state.theme == 'Light' else 'Terang'}", use_container_width=True):
         st.session_state.theme = 'Dark' if st.session_state.theme == 'Light' else 'Light'
         st.rerun()
 
-# --- Konten Halaman ---
+
+# --- Konten Halaman (sesuai pilihan navigasi) ---
+page_selection = st.session_state.active_page # Menggunakan state untuk halaman aktif
+
 if page_selection == "🏡 Identifikasi Tanaman":
     st.markdown("<h1 class='title-app'>🌿 AgroDetect</h1>", unsafe_allow_html=True)
     st.markdown(
@@ -442,13 +480,13 @@ if page_selection == "🏡 Identifikasi Tanaman":
                         for sol in info['solusi']:
                             st.markdown(f"- {sol}")
                         st.markdown("</div>", unsafe_allow_html=True)
-                    elif "healthy" in predicted_class_name.lower():
+                    elif "healthy" in predicted_class_name.lower(): # Penanganan untuk kelas healthy
                         info_sehat = disease_info.get(predicted_class_name)
                         if info_sehat:
                             st.markdown("---")
                             st.markdown("<div class='info-box'>", unsafe_allow_html=True)
                             st.markdown(f"<h4>🌿 Informasi: {predicted_class_name.replace('_', ' ')} (Sehat)</h4>", unsafe_allow_html=True)
-                            st.markdown(f"{info_sehat['penyebab']}")
+                            st.markdown(f"{info_sehat['penyebab']}") # Ini adalah deskripsi kondisi sehat
                             st.markdown("**Rekomendasi:**")
                             for sol in info_sehat['solusi']:
                                 st.markdown(f"- {sol}")
@@ -489,7 +527,7 @@ if page_selection == "🏡 Identifikasi Tanaman":
 
 elif page_selection == "ℹ️ Tentang AgroDetect":
     st.markdown("<h1 class='title-app'>💡 Tentang AgroDetect</h1>", unsafe_allow_html=True)
-    st.markdown( # PASTIKAN KONTEN INI LENGKAP
+    st.markdown(
         """
         <div class="expander-custom">
         AgroDetect hadir sebagai solusi berupa aplikasi berbasis web yang dirancang untuk
@@ -515,7 +553,7 @@ elif page_selection == "ℹ️ Tentang AgroDetect":
 
 elif page_selection == "👥 Detail Proyek":
     st.markdown("<h1 class='title-app'>👥 Detail Proyek Laskar AI</h1>", unsafe_allow_html=True)
-    st.markdown( # PASTIKAN KONTEN INI LENGKAP
+    st.markdown(
         """
         <div class="expander-custom">
         Berikut adalah detail mengenai proyek Capstone Laskar AI:
