@@ -13,8 +13,9 @@ st.set_page_config(
 
 # --- Path Model ML & Ambang Batas ---
 MODEL_PATH = "best_model.keras"
-CONFIDENCE_THRESHOLD = 75
-VERIFICATION_THRESHOLD = 80
+
+CONFIDENCE_THRESHOLD = 80
+VERIFICATION_THRESHOLD = 70
 
 # --- Data Penyakit & Informasi ---
 CLASS_NAMES = [
@@ -319,7 +320,7 @@ if "predictions_state" not in st.session_state:
 if "show_detailed_solution" not in st.session_state:
     st.session_state.show_detailed_solution = False
 if "file_uploader_key" not in st.session_state:
-    st.session_state.file_uploader_key = "initial"
+    st.session_state.file_uploader_key = "initial_key"
 if "uploaded_file" not in st.session_state:
     st.session_state.uploaded_file = None
 if "threshold_message" not in st.session_state:
@@ -384,72 +385,92 @@ if st.session_state.current_page == "Identifikasi":
     st.subheader("📸 Unggah Foto Daun")
     st.write("Seret & lepas gambar di sini, atau klik untuk memilih file.")
 
-    # Gunakan callback on_change untuk file_uploader
-    def handle_upload_change():
-        if (
-            st.session_state["file_uploader_widget_id"]
-            != st.session_state.uploaded_file
-        ):
-            st.session_state.uploaded_file = st.session_state["file_uploader_widget_id"]
-            reset_app_state(
-                clear_uploaded_file=False
-            )  # Jangan reset uploader key di sini
+    def on_file_uploader_change():
+        uploaded_file_from_widget = st.session_state[st.session_state.file_uploader_key]
+        if uploaded_file_from_widget is not None:
+            if (
+                st.session_state.uploaded_file is None
+                or st.session_state.uploaded_file.name != uploaded_file_from_widget.name
+                or st.session_state.uploaded_file.size != uploaded_file_from_widget.size
+            ):
+                st.session_state.uploaded_file = uploaded_file_from_widget
+                st.session_state.identification_done = False
+                st.session_state.predicted_class_name_state = None
+                st.session_state.confidence_state = None
+                st.session_state.predictions_state = None
+                st.session_state.show_detailed_solution = False
+                st.session_state.threshold_message = None
+                st.rerun()
+        else:
+            if st.session_state.uploaded_file is not None:
+                reset_app_state(clear_uploaded_file=True)
+                st.rerun()
 
     current_uploaded_file_widget = st.file_uploader(
         "Pilih gambar daun (JPG, PNG):",
         type=["jpg", "jpeg", "png"],
-        key="file_uploader_widget_id",
+        key=st.session_state.file_uploader_key,
         label_visibility="collapsed",
-        on_change=handle_upload_change,
+        on_change=on_file_uploader_change,
     )
 
     # Logika untuk menampilkan gambar setelah diunggah
     if st.session_state.uploaded_file is not None:
-        image = Image.open(st.session_state.uploaded_file)
-        st.image(image, caption="Foto Daun Anda", use_container_width=True)
+        try:
+            image = Image.open(st.session_state.uploaded_file)
+            st.image(image, caption="Foto Daun Anda", use_container_width=True)
 
-        if st.button(
-            "✨ **Mulai Analisis Cerdas!**",
-            key="analyze_button",
-            help="Klik untuk mengidentifikasi penyakit pada foto daun Anda.",
-            use_container_width=True,
-            type="primary",
-        ):
-            # Reset state analisis sebelum memulai analisis baru
-            st.session_state.identification_done = False
-            st.session_state.threshold_message = None
-            st.session_state.show_detailed_solution = False
-            st.session_state.predicted_class_name_state = None
-            st.session_state.confidence_state = None
-            st.session_state.predictions_state = None
+            if st.button(
+                "✨ **Mulai Analisis Cerdas!**",
+                key="analyze_button",
+                help="Klik untuk mengidentifikasi penyakit pada foto daun Anda.",
+                use_container_width=True,
+                type="primary",
+            ):
+                # Reset state analisis sebelum memulai analisis baru
+                st.session_state.identification_done = False
+                st.session_state.threshold_message = None
+                st.session_state.show_detailed_solution = False
+                st.session_state.predicted_class_name_state = None
+                st.session_state.confidence_state = None
+                st.session_state.predictions_state = None
 
-            with st.spinner("⏳ Analisis sedang berlangsung..."):
-                try:
-                    processed_image = preprocess_image(image)
-                    predictions = model.predict(processed_image)
-                    predicted_class_index = np.argmax(predictions, axis=1)[0]
-                    confidence = predictions[0][predicted_class_index] * 100
+                with st.spinner("⏳ Analisis sedang berlangsung..."):
+                    try:
+                        processed_image = preprocess_image(image)
+                        predictions = model.predict(processed_image)
+                        predicted_class_index = np.argmax(predictions, axis=1)[0]
+                        confidence = predictions[0][predicted_class_index] * 100
 
-                    st.session_state.predictions_state = predictions
-                    st.session_state.confidence_state = confidence
-                    st.session_state.predicted_class_name_state = CLASS_NAMES[
-                        predicted_class_index
-                    ]
-                    st.session_state.identification_done = True
+                        st.session_state.predictions_state = predictions
+                        st.session_state.confidence_state = confidence
+                        st.session_state.predicted_class_name_state = CLASS_NAMES[
+                            predicted_class_index
+                        ]
+                        st.session_state.identification_done = True
 
-                    if confidence < VERIFICATION_THRESHOLD:
-                        st.session_state.threshold_message = (
-                            f"Model tidak dapat memverifikasi dengan yakin bahwa ini adalah gambar daun tanaman yang didukung, "
-                            f"atau objek tidak terdeteksi dengan jelas (keyakinan: {confidence:.2f}% < {VERIFICATION_THRESHOLD}%). "
-                            "Mohon coba unggah gambar daun paprika, tomat, atau kentang yang lebih jelas."
+                        # Logika ambang batas
+                        if confidence < VERIFICATION_THRESHOLD:
+                            st.session_state.threshold_message = (
+                                f"Model tidak dapat memverifikasi dengan yakin bahwa ini adalah gambar daun tanaman yang didukung, "
+                                f"atau objek tidak terdeteksi dengan jelas (keyakinan tertinggi: {confidence:.2f}% < {VERIFICATION_THRESHOLD}%). "
+                                "Mohon coba unggah gambar daun paprika, tomat, atau kentang yang lebih jelas."
+                            )
+                            st.session_state.show_detailed_solution = False
+                        else:
+                            st.session_state.threshold_message = None
+
+                    except Exception as e:
+                        st.error(
+                            f"❌ **Terjadi kesalahan saat analisis:** {e}. Mohon coba lagi."
                         )
-                        st.session_state.show_detailed_solution = False
-                except Exception as e:
-                    st.error(
-                        f"❌ **Terjadi kesalahan saat analisis:** {e}. Mohon coba lagi."
-                    )
-                    st.session_state.identification_done = False
-                    st.session_state.threshold_message = None
+                        st.session_state.identification_done = False
+                        st.session_state.threshold_message = None
+                st.rerun()
+
+        except Exception as e:
+            st.error(f"Gagal memuat atau menampilkan gambar: {e}. Pastikan file valid.")
+            reset_app_state(clear_uploaded_file=True)
             st.rerun()
     else:
         st.markdown(
@@ -469,6 +490,7 @@ if st.session_state.current_page == "Identifikasi":
 
         if st.session_state.threshold_message:
             st.warning(st.session_state.threshold_message)
+            st.info("Unggah gambar baru untuk mencoba lagi.")
         else:
             confidence = st.session_state.confidence_state
             predicted_class_name = st.session_state.predicted_class_name_state
@@ -483,8 +505,8 @@ if st.session_state.current_page == "Identifikasi":
             )
 
             if (
-                confidence >= CONFIDENCE_THRESHOLD
-                and "healthy" not in predicted_class_name.lower()
+                "healthy" not in predicted_class_name.lower()
+                and confidence >= CONFIDENCE_THRESHOLD
             ):
                 st.error(f"🚨 Terdeteksi: {display_name}")
                 st.metric(
@@ -502,8 +524,8 @@ if st.session_state.current_page == "Identifikasi":
                     st.session_state.show_detailed_solution = True
                     st.rerun()
             elif (
-                confidence >= CONFIDENCE_THRESHOLD
-                and "healthy" in predicted_class_name.lower()
+                "healthy" in predicted_class_name.lower()
+                and confidence >= CONFIDENCE_THRESHOLD
             ):
                 st.success(f"✅ Tanaman Sehat: {display_name}")
                 st.metric(
