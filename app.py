@@ -3,19 +3,20 @@ import streamlit as st
 import tensorflow as tf
 from PIL import Image
 
-# --- Page Configuration ---
+# --- Konfigurasi Halaman ---
 st.set_page_config(
-    page_title="AgroDetect: Smart Garden Assistant",
+    page_title="AgroDetect: Asisten Kebun Cerdas",
     page_icon="🌱",
     layout="wide",
+    initial_sidebar_state="expanded", # Memastikan sidebar terbuka secara default
 )
 
-# --- ML Model Path & Confidence Threshold ---
+# --- Path Model ML & Ambang Batas Kepercayaan ---
 MODEL_PATH = "best_model.keras"
 CONFIDENCE_THRESHOLD = 75
 VERIFICATION_THRESHOLD = 80
 
-# --- Disease & Health Information (Translated to English) ---
+# --- Data Penyakit & Informasi (Dalam Bahasa Indonesia) ---
 CLASS_NAMES = [
     "Pepper_bell__Bacterial_spot",
     "Pepper_bell__healthy",
@@ -36,227 +37,228 @@ CLASS_NAMES = [
 
 disease_info = {
     "Pepper_bell__Bacterial_spot": {
-        "display_name": "Pepper Bell Bacterial Spot",
-        "brief_description": "Bacteria cause oily spots and lesions on leaves and fruits.",
-        "cause": "Bacteria _Xanthomonas campestris_. Spreads via water, wind, tools.",
-        "symptoms": [
-            "Small, dark, oily spots with a yellow halo on leaves.",
-            "Crusty lesions on fruits.",
+        "nama_tampilan": "Bercak Bakteri Paprika",
+        "deskripsi_singkat": "Bakteri menyebabkan bercak berminyak dan luka pada daun serta buah.",
+        "penyebab": "Bakteri _Xanthomonas campestris_. Menyebar via air, angin, alat.",
+        "gejala": [
+            "Bercak kecil gelap berminyak dengan halo kuning pada daun.",
+            "Luka berkerak pada buah.",
         ],
-        "solutions": [
-            "Use healthy seeds.",
-            "Crop rotation.",
-            "Garden sanitation.",
-            "Avoid overhead watering.",
-            "Copper-based bactericides.",
+        "solusi": [
+            "Gunakan benih sehat.",
+            "Rotasi tanaman.",
+            "Sanitasi kebun.",
+            "Hindari penyiraman dari atas.",
+            "Bakterisida berbahan dasar tembaga.",
         ],
     },
     "Pepper_bell__healthy": {
-        "display_name": "Healthy Pepper Bell",
-        "brief_description": "Your pepper plant is in excellent condition.",
-        "cause": "Good cultivation practices.",
-        "symptoms": ["Bright green, strong leaves.", "No spots or discoloration."],
-        "solutions": ["Maintain routine care.", "Continuously monitor plant health."],
+        "nama_tampilan": "Paprika Sehat",
+        "deskripsi_singkat": "Tanaman paprika Anda dalam kondisi prima.",
+        "penyebab": "Praktik budidaya yang baik.",
+        "gejala": ["Daun hijau cerah, kuat.", "Tidak ada bercak atau perubahan warna."],
+        "solusi": ["Pertahankan perawatan rutin.", "Pantau terus kesehatan tanaman."],
     },
     "Potato_Early_blight": {
-        "display_name": "Potato Early Blight",
-        "brief_description": "Fungus _Alternaria solani_ causes concentric spots on leaves.",
-        "cause": "Fungus _Alternaria solani_. Survives on plant debris.",
-        "symptoms": [
-            "Brown, circular spots with a target-like pattern on older leaves."
+        "nama_tampilan": "Bercak Kering Kentang",
+        "deskripsi_singkat": "Jamur _Alternaria solani_ menyebabkan bercak konsentris pada daun.",
+        "penyebab": "Jamur _Alternaria solani_. Bertahan di sisa tanaman.",
+        "gejala": [
+            "Bercak bulat cokelat dengan pola cincin (seperti target) pada daun tua."
         ],
-        "solutions": [
-            "Resistant varieties.",
-            "Crop rotation.",
-            "Remove plant debris.",
-            "Fungicides.",
+        "solusi": [
+            "Gunakan varietas tahan.",
+            "Rotasi tanaman.",
+            "Musnahkan sisa tanaman.",
+            "Gunakan fungisida.",
         ],
     },
     "Potato_Late_blight": {
-        "display_name": "Potato Late Blight",
-        "brief_description": "A fast-spreading fungal disease damaging leaves and tubers.",
-        "cause": "Fungus _Phytophthora infestans_. Thrives in cool temperatures, high humidity.",
-        "symptoms": [
-            "Dark, water-soaked spots on leaves & stems.",
-            "White mold on the underside of leaves.",
-            "Tuber rot.",
+        "nama_tampilan": "Busuk Daun Kentang",
+        "deskripsi_singkat": "Penyakit jamur cepat menyebar yang merusak daun dan umbi.",
+        "penyebab": "Jamur _Phytophthora infestans_. Berkembang pada suhu sejuk, kelembapan tinggi.",
+        "gejala": [
+            "Bercak basah gelap pada daun & batang.",
+            "Kapang putih di bawah daun.",
+            "Pembusukan umbi.",
         ],
-        "solutions": [
-            "Healthy seed potatoes.",
-            "Resistant varieties.",
-            "Good air circulation.",
-            "Avoid overhead watering.",
-            "Systemic/contact fungicides.",
+        "solusi": [
+            "Gunakan bibit sehat.",
+            "Gunakan varietas tahan.",
+            "Pastikan sirkulasi udara baik.",
+            "Hindari penyiraman dari atas.",
+            "Gunakan fungisida sistemik/kontak.",
         ],
     },
     "Potato_healthy": {
-        "display_name": "Healthy Potato",
-        "brief_description": "Your potato plant is growing well and is disease-free.",
-        "cause": "Optimal environment, proper management.",
-        "symptoms": [
-            "Dark green leaves, strong growth.",
-            "No signs of diseases/pests.",
+        "nama_tampilan": "Kentang Sehat",
+        "deskripsi_singkat": "Tanaman kentang Anda tumbuh dengan baik dan bebas penyakit.",
+        "penyebab": "Lingkungan optimal, manajemen yang tepat.",
+        "gejala": [
+            "Daun hijau gelap, pertumbuhan kuat.",
+            "Tidak ada tanda penyakit/hama.",
         ],
-        "solutions": ["Continue routine care.", "Monitor and maintain field cleanliness."],
+        "solusi": ["Lanjutkan perawatan rutin.", "Pantau dan jaga kebersihan lahan."],
     },
     "Tomato_Bacterial_spot": {
-        "display_name": "Tomato Bacterial Spot",
-        "brief_description": "Bacteria cause spots on tomato leaves, stems, and fruits.",
-        "cause": "Bacteria _Xanthomonas_ species. Spreads through water splashes, seeds.",
-        "symptoms": [
-            "Small, watery, dark spots on leaves.",
-            "Raised, scabby spots on fruits.",
+        "nama_tampilan": "Bercak Bakteri Tomat",
+        "deskripsi_singkat": "Bakteri menyebabkan bercak pada daun, batang, dan buah tomat.",
+        "penyebab": "Bakteri _Xanthomonas_. Menyebar melalui percikan air, benih.",
+        "gejala": [
+            "Bercak kecil berair, gelap pada daun.",
+            "Kerak menonjol pada buah.",
         ],
-        "solutions": [
-            "Disease-free seeds/seedlings.",
-            "Sanitation.",
-            "Crop rotation.",
-            "Avoid wetting leaves.",
-            "Copper-based bactericides.",
+        "solusi": [
+            "Gunakan benih/bibit bebas penyakit.",
+            "Jaga sanitasi.",
+            "Lakukan rotasi tanaman.",
+            "Hindari membasahi daun.",
+            "Gunakan bakterisida berbahan dasar tembaga.",
         ],
     },
     "Tomato_Early_blight": {
-        "display_name": "Tomato Early Blight",
-        "brief_description": "Fungus _Alternaria solani_ causes spots with concentric rings.",
-        "cause": "Fungus _Alternaria solani_. Survives on plant debris.",
-        "symptoms": ["Brown, circular spots with concentric rings on older leaves."],
-        "solutions": [
-            "Resistant varieties.",
-            "Crop rotation.",
-            "Clean up plant debris.",
-            "Fungicides.",
+        "nama_tampilan": "Bercak Kering Tomat",
+        "deskripsi_singkat": "Jamur _Alternaria solani_ menyebabkan bercak dengan cincin konsentris.",
+        "penyebab": "Jamur _Alternaria solani_. Bertahan di sisa tanaman.",
+        "gejala": ["Bercak bulat cokelat dengan cincin konsentris pada daun tua."],
+        "solusi": [
+            "Gunakan varietas tahan.",
+            "Lakukan rotasi tanaman.",
+            "Bersihkan sisa tanaman.",
+            "Gunakan fungisida.",
         ],
     },
     "Tomato_Late_blight": {
-        "display_name": "Tomato Late Blight",
-        "brief_description": "A fast-spreading fungal disease that damages all parts of the plant.",
-        "cause": "Fungus _Phytophthora infestans_. Favors cool temperatures, high humidity.",
-        "symptoms": [
-            "Large, dark, water-soaked spots.",
-            "White mold on the underside of leaves.",
-            "Fruits rot.",
+        "nama_tampilan": "Busuk Daun Tomat",
+        "deskripsi_singkat": "Penyakit jamur yang cepat menyebar, merusak seluruh bagian tanaman.",
+        "penyebab": "Jamur _Phytophthora infestans_. Menyukai suhu sejuk, kelembapan tinggi.",
+        "gejala": [
+            "Bercak besar basah gelap.",
+            "Kapang putih di bawah daun.",
+            "Buah membusuk.",
         ],
-        "solutions": [
-            "Resistant varieties.",
-            "Healthy seedlings.",
-            "Ensure good air circulation.",
-            "Avoid overhead watering.",
-            "Fungicides.",
+        "solusi": [
+            "Gunakan varietas tahan.",
+            "Gunakan bibit sehat.",
+            "Jaga sirkulasi udara.",
+            "Hindari penyiraman dari atas.",
+            "Gunakan fungisida.",
         ],
     },
     "Tomato_Leaf_Mold": {
-        "display_name": "Tomato Leaf Mold",
-        "brief_description": "Fungus causes a velvety layer under leaves, especially in humid environments.",
-        "cause": "Fungus _Passalora fulva_ (syn. _Fulvia fulva_). High humidity (>85%), moderate temperatures.",
-        "symptoms": [
-            "Yellowish-green spots on the upper side of leaves.",
-            "Brownish-gray velvety layer on the underside of leaves.",
+        "nama_tampilan": "Kapang Daun Tomat",
+        "deskripsi_singkat": "Jamur menyebabkan lapisan seperti beludru di bawah daun, terutama di lingkungan lembap.",
+        "penyebab": "Jamur _Passalora fulva_ (syn. _Fulvia fulva_). Kondisi lembap tinggi (>85%), suhu sedang.",
+        "gejala": [
+            "Bercak kuning kehijauan di atas daun.",
+            "Lapisan beludru cokelat keabu-abuan di bawah daun.",
         ],
-        "solutions": [
-            "Resistant varieties.",
-            "Improve air circulation.",
-            "Lower humidity.",
-            "Avoid wetting leaves.",
-            "Fungicides.",
+        "solusi": [
+            "Gunakan varietas resisten.",
+            "Tingkatkan sirkulasi udara.",
+            "Turunkan kelembapan.",
+            "Hindari membasahi daun.",
+            "Gunakan fungisida.",
         ],
     },
     "Tomato_Septoria_leaf_spot": {
-        "display_name": "Tomato Septoria Leaf Spot",
-        "brief_description": "Fungus causes small, circular spots with dark specks in the center.",
-        "cause": "Fungus _Septoria lycopersici_. Spreads through water splashes.",
-        "symptoms": [
-            "Small, circular, brown spots with a gray center and tiny black dots (pycnidia)."
+        "nama_tampilan": "Bercak Daun Septoria Tomat",
+        "deskripsi_singkat": "Jamur menyebabkan bercak kecil bulat dengan titik hitam di tengah.",
+        "penyebab": "Jamur _Septoria lycopersici_. Menyebar melalui percikan air.",
+        "gejala": [
+            "Bercak kecil bulat cokelat dengan pusat abu-abu dan titik hitam kecil (piknidia)."
         ],
-        "solutions": [
-            "Crop rotation.",
-            "Garden sanitation.",
-            "Use mulch.",
-            "Avoid overhead watering.",
-            "Fungicides.",
+        "solusi": [
+            "Lakukan rotasi tanaman.",
+            "Jaga sanitasi kebun.",
+            "Gunakan mulsa.",
+            "Hindari penyiraman dari atas.",
+            "Gunakan fungisida.",
         ],
     },
     "Tomato_Spider_mites_Two_spotted_mite": {
-        "display_name": "Tomato Spider Mites (Two-spotted mite)",
-        "brief_description": "Small sap-sucking pests causing yellow spots and fine webs.",
-        "cause": "Mite _Tetranychus urticae_. Reproduces quickly in hot, dry conditions.",
-        "symptoms": [
-            "Yellow/bronze stippling on leaves.",
-            "Fine webbing between leaves.",
-            "Leaves may curl/dry up.",
+        "nama_tampilan": "Tungau Laba-laba Tomat (Tungau Bercak Dua)",
+        "deskripsi_singkat": "Hama kecil penghisap cairan yang menyebabkan bintik kuning dan jaring halus.",
+        "penyebab": "Tungau _Tetranychus urticae_. Berkembang biak cepat di kondisi panas, kering.",
+        "gejala": [
+            "Bintik kuning/perunggu pada daun.",
+            "Jaring halus di antara daun.",
+            "Daun menggulung/kering.",
         ],
-        "solutions": [
-            "Maintain humidity.",
-            "Spray with pressurized water.",
-            "Natural enemies (predatory mites).",
-            "Insecticidal soap/neem oil.",
-            "Acaricides (miticides).",
+        "solusi": [
+            "Jaga kelembapan.",
+            "Semprot dengan air bertekanan.",
+            "Gunakan musuh alami (misalnya, tungau predator).",
+            "Gunakan sabun insektisida/minyak nimba.",
+            "Gunakan akarisida (mitisida).",
         ],
     },
     "Tomato_Target_Spot": {
-        "display_name": "Tomato Target Spot",
-        "brief_description": "Fungus causes concentric 'target-like' spots on leaves.",
-        "cause": "Fungus _Corynespora cassiicola_. Spreads via wind/water.",
-        "symptoms": ["Dark brown, circular spots with concentric zones like a target."],
-        "solutions": [
-            "Crop rotation.",
-            "Sanitation.",
-            "Good drainage.",
-            "Improve air circulation.",
-            "Fungicides.",
+        "nama_tampilan": "Bercak Target Tomat",
+        "deskripsi_singkat": "Jamur menyebabkan bercak konsentris seperti 'target' pada daun.",
+        "penyebab": "Jamur _Corynespora cassiicola_. Menyebar via angin/air.",
+        "gejala": ["Bercak bulat cokelat gelap dengan zona konsentris seperti target."],
+        "solusi": [
+            "Lakukan rotasi tanaman.",
+            "Jaga sanitasi.",
+            "Pastikan drainase baik.",
+            "Tingkatkan sirkulasi udara.",
+            "Gunakan fungisida.",
         ],
     },
     "Tomato_Tomato_Yellow_Leaf_Curl_Virus": {
-        "display_name": "Tomato Yellow Leaf Curl Virus (TYLCV)",
-        "brief_description": "Virus transmitted by whiteflies, causing severe yellowing and curling of leaves.",
-        "cause": "TYLCV virus transmitted by whiteflies (_Bemisia tabaci_).",
-        "symptoms": [
-            "Leaves yellow between veins, curl upwards.",
-            "Stunted plants, reduced fruit set.",
+        "nama_tampilan": "Virus Keriting Kuning Daun Tomat (TYLCV)",
+        "deskripsi_singkat": "Virus yang ditularkan kutu kebul, menyebabkan daun menguning dan keriting parah.",
+        "penyebab": "Virus TYLCV ditularkan oleh kutu kebul (_Bemisia tabaci_).",
+        "gejala": [
+            "Daun menguning di antara tulang daun, menggulung ke atas.",
+            "Tanaman kerdil, buah sedikit.",
         ],
-        "solutions": [
-            "Resistant varieties.",
-            "Control whiteflies.",
-            "Silver reflective mulch.",
-            "Sanitation.",
-            "Remove infected plants.",
+        "solusi": [
+            "Gunakan varietas tahan.",
+            "Kendalikan kutu kebul.",
+            "Gunakan mulsa perak.",
+            "Jaga sanitasi.",
+            "Cabut tanaman terinfeksi.",
         ],
     },
     "Tomato_Tomato_mosaic_virus": {
-        "display_name": "Tomato Mosaic Virus (ToMV)",
-        "brief_description": "Highly contagious virus causing mosaic patterns on leaves and stunted growth.",
-        "cause": "ToMV virus. Easily transmitted mechanically (touch, tools, seeds).",
-        "symptoms": [
-            "Mosaic pattern (light/dark green) on leaves.",
-            "Curled/deformed leaves.",
-            "Stunted plants.",
+        "nama_tampilan": "Virus Mosaik Tomat (ToMV)",
+        "deskripsi_singkat": "Virus sangat menular yang menyebabkan pola mosaik pada daun dan pertumbuhan terhambat.",
+        "penyebab": "Virus ToMV. Mudah menular secara mekanis (sentuhan, alat, benih).",
+        "gejala": [
+            "Pola mosaik (hijau terang/gelap) pada daun.",
+            "Daun keriting/cacat.",
+            "Tanaman kerdil.",
         ],
-        "solutions": [
-            "Healthy seeds.",
-            "Wash hands & sterilize tools.",
-            "Avoid tobacco products near plants.",
-            "Remove infected plants.",
+        "solusi": [
+            "Gunakan benih sehat.",
+            "Cuci tangan & sterilkan alat.",
+            "Hindari produk tembakau di sekitar tanaman.",
+            "Cabut tanaman terinfeksi.",
         ],
     },
     "Tomato_healthy": {
-        "display_name": "Healthy Tomato",
-        "brief_description": "Your tomato plant is in prime condition and productive.",
-        "cause": "Optimal cultivation practices.",
-        "symptoms": [
-            "Dark green leaves, upright growth.",
-            "No signs of diseases/pests.",
+        "nama_tampilan": "Tomat Sehat",
+        "deskripsi_singkat": "Tanaman tomat Anda dalam kondisi prima dan produktif.",
+        "penyebab": "Praktik budidaya yang optimal.",
+        "gejala": [
+            "Daun hijau gelap, pertumbuhan tegak.",
+            "Tidak ada tanda penyakit/hama.",
         ],
-        "solutions": [
-            "Maintain care.",
-            "Regular inspection.",
-            "Optimize air circulation.",
-            "Regular pruning.",
+        "solusi": [
+            "Pertahankan perawatan.",
+            "Lakukan inspeksi rutin.",
+            "Optimalkan sirkulasi udara.",
+            "Lakukan pemangkasan teratur.",
         ],
     },
 }
 
-# --- Image Preprocessing Function ---
+# --- Fungsi Praproses Gambar ---
 @st.cache_data
 def preprocess_image(_image: Image.Image) -> np.ndarray:
+    """Memproses gambar yang diunggah untuk prediksi model."""
     if _image.mode != "RGB":
         _image = _image.convert("RGB")
     target_size = (128, 128)
@@ -266,19 +268,27 @@ def preprocess_image(_image: Image.Image) -> np.ndarray:
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
-# --- Cache ML Model ---
+# --- Cache Model ML ---
 @st.cache_resource
 def load_ml_model():
+    """Memuat model TensorFlow/Keras yang sudah dilatih."""
     try:
         model = tf.keras.models.load_model(MODEL_PATH)
         return model
     except Exception as e:
-        st.error(f"❌ **Oops!** Model failed to load: {e}")
+        st.error(
+            f"❌ **Ups!** Model Machine Learning gagal dimuat dari '{MODEL_PATH}'. Kesalahan: {e}"
+        )
+        st.warning(
+            "Ini mungkin terjadi jika file model tidak ada atau rusak. "
+            f"Pastikan `best_model.keras` berada di lokasi yang benar."
+        )
         st.stop()
 model = load_ml_model()
 
-# --- Function to Reset App State ---
-def reset_app_state(clear_uploaded_file=True): # [Modifikasi] Tambah parameter
+# --- Fungsi Reset State Aplikasi ---
+def reset_app_state(clear_uploaded_file=True):
+    """Meriset semua status sesi yang relevan untuk menghapus hasil dan memungkinkan unggahan baru."""
     if clear_uploaded_file:
         st.session_state.uploaded_file = None
         st.session_state.file_uploader_key = str(np.random.rand())
@@ -289,9 +299,9 @@ def reset_app_state(clear_uploaded_file=True): # [Modifikasi] Tambah parameter
     st.session_state.show_detailed_solution = False
     st.session_state.threshold_message = None
 
-# --- Initialize Session State ---
+# --- Inisialisasi State Awal ---
 if "current_page" not in st.session_state:
-    st.session_state.current_page = "Identification"
+    st.session_state.current_page = "Identifikasi"
 if "identification_done" not in st.session_state:
     st.session_state.identification_done = False
 if "predicted_class_name_state" not in st.session_state:
@@ -309,113 +319,96 @@ if "uploaded_file" not in st.session_state:
 if "threshold_message" not in st.session_state:
     st.session_state.threshold_message = None
 
-# --- HEADER AND TOP NAVIGATION (CENTERED) ---
-# ... (kode header dan navigasi tetap sama)
-header_container = st.container()
-with header_container:
+
+# --- NAVIGASI SIDEBAR ---
+with st.sidebar:
+    st.image("https://emojigraph.org/media/apple/leafy-green_1f96c.png", width=80)
+    st.markdown("## 🌱 **AgroDetect**")
+    st.caption("_Asisten Kebun Cerdas Anda_")
+    st.divider()
+
+    if st.button(
+        "🏡 Identifikasi Tanaman",
+        key="nav_identifikasi_sidebar", # Key unik untuk tombol sidebar
+        use_container_width=True,
+        type="primary" if st.session_state.current_page == "Identifikasi" else "secondary",
+    ):
+        st.session_state.current_page = "Identifikasi"
+        # Hanya reset state hasil jika berpindah KE halaman identifikasi,
+        # file yang sudah diunggah mungkin ingin dipertahankan jika pengguna hanya bolak-balik halaman info
+        reset_app_state(clear_uploaded_file=False) # Jangan hapus file jika hanya ganti halaman
+        st.rerun()
+
+    if st.button(
+        "💡 Tentang AgroDetect",
+        key="nav_tentang_sidebar", # Key unik
+        use_container_width=True,
+        type="primary" if st.session_state.current_page == "Tentang" else "secondary",
+    ):
+        st.session_state.current_page = "Tentang"
+        st.rerun()
+
+    if st.button(
+        "👥 Tim Pengembang",
+        key="nav_tim_sidebar", # Key unik
+        use_container_width=True,
+        type="primary" if st.session_state.current_page == "Tim" else "secondary",
+    ):
+        st.session_state.current_page = "Tim"
+        st.rerun()
+
+    st.divider()
+    st.info("AgroDetect: Mempermudah petani mendeteksi penyakit dan hama dengan AI.")
+    st.caption("© 2025 Laskar AI Capstone")
+
+
+# --- KONTEN HALAMAN UTAMA BERDASARKAN NAVIGASI ---
+if st.session_state.current_page == "Identifikasi":
     st.markdown(
-        f"""
-        <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
-            <img src="https://emojigraph.org/media/apple/leafy-green_1f96c.png" alt="AgroDetect Logo" width="80">
-            <h1 style="text-align: center; margin-bottom: 0px;">🌱 AgroDetect</h1>
-            <p style="text-align: center; margin-top: 0px; font-style: italic;">_Your Smart Garden Assistant_</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    nav_placeholder_left, nav_col1, nav_col2, nav_col3, nav_placeholder_right = st.columns(
-        [0.5, 1.5, 1.5, 1.5, 0.5]
-    )
-
-    with nav_col1:
-        if st.button(
-            "🏡 Plant Identification",
-            key="nav_identification",
-            use_container_width=True,
-            type="primary" if st.session_state.current_page == "Identification" else "secondary",
-        ):
-            st.session_state.current_page = "Identification"
-            reset_app_state(clear_uploaded_file=True) # [Modifikasi] Pastikan file direset saat ke halaman identifikasi
-            st.rerun()
-
-    with nav_col2:
-        if st.button(
-            "💡 About AgroDetect",
-            key="nav_about",
-            use_container_width=True,
-            type="primary" if st.session_state.current_page == "About" else "secondary",
-        ):
-            st.session_state.current_page = "About"
-            st.rerun()
-
-    with nav_col3:
-        if st.button(
-            "👥 Development Team",
-            key="nav_team",
-            use_container_width=True,
-            type="primary" if st.session_state.current_page == "Team" else "secondary",
-        ):
-            st.session_state.current_page = "Team"
-            st.rerun()
-st.divider()
-
-# --- MAIN PAGE CONTENT BASED ON NAVIGATION ---
-if st.session_state.current_page == "Identification":
-    st.markdown(
-        "<h1 style='text-align: center; color: #4CAF50;'>🌱 AgroDetect: Identify Your Plant's Issue!</h1>",
+        "<h1 style='text-align: center; color: #4CAF50;'>🌱 AgroDetect: Temukan Masalah Tanaman Anda!</h1>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<p style='text-align: center; font-size: 1.1em;'>Upload an image of your pepper, tomato, or potato plant leaf. "
-        "We'll analyze it and provide a quick diagnosis and treatment recommendations.</p>",
+        "<p style='text-align: center; font-size: 1.1em;'>Unggah gambar daun tanaman paprika, tomat, atau kentang Anda. "
+        "Kami akan menganalisisnya dan memberikan diagnosis cepat serta rekomendasi penanganan.</p>",
         unsafe_allow_html=True,
     )
     st.divider()
 
-    st.subheader("📸 Upload Leaf Image")
-    st.write("Drag & drop an image here, or click to select a file.")
+    st.subheader("📸 Unggah Foto Daun")
+    st.write("Seret & lepas gambar di sini, atau klik untuk memilih file.")
 
-    # Menggunakan current_uploaded_file untuk menangkap hasil dari file_uploader
     current_uploaded_file_widget = st.file_uploader(
-        "Select a leaf image (JPG, PNG):",
+        "Pilih gambar daun (JPG, PNG):",
         type=["jpg", "jpeg", "png"],
         key=st.session_state.file_uploader_key,
         label_visibility="collapsed",
     )
 
-    # Logika untuk menangani perubahan file yang diunggah
     if current_uploaded_file_widget is not None:
-        # Jika file baru diunggah (berbeda dari yang ada di session state), perbarui session state
-        # dan reset status identifikasi agar analisis baru bisa dilakukan.
         if st.session_state.uploaded_file is None or \
            (st.session_state.uploaded_file is not None and \
             (current_uploaded_file_widget.name != st.session_state.uploaded_file.name or \
              current_uploaded_file_widget.size != st.session_state.uploaded_file.size)):
             st.session_state.uploaded_file = current_uploaded_file_widget
-            reset_app_state(clear_uploaded_file=False) # [Modifikasi] Jangan hapus file yang baru saja di-set
-            st.session_state.uploaded_file = current_uploaded_file_widget # [Modifikasi] Pastikan file tetap ada setelah reset parsial
-            st.rerun() # Rerun untuk memastikan UI update dengan file baru
+            reset_app_state(clear_uploaded_file=False)
+            st.session_state.uploaded_file = current_uploaded_file_widget
+            st.rerun()
     elif st.session_state.uploaded_file is not None and current_uploaded_file_widget is None:
-        # Jika file_uploader menjadi None (misalnya karena key direset dan tidak ada file dipilih lagi),
-        # reset state yang relevan jika sebelumnya ada file.
         reset_app_state(clear_uploaded_file=True)
         st.rerun()
 
-
     if st.session_state.uploaded_file is not None:
         image = Image.open(st.session_state.uploaded_file)
-        st.image(image, caption="Your Leaf Image", use_container_width=True)
+        st.image(image, caption="Foto Daun Anda", use_container_width=True)
 
-        # Tombol Analisis hanya muncul jika ada file yang diunggah
         if st.button(
-            "✨ **Start Smart Analysis!**",
+            "✨ **Mulai Analisis Cerdas!**",
             key="analyze_button",
-            help="Click to identify the disease on your leaf photo.",
+            help="Klik untuk mengidentifikasi penyakit pada foto daun Anda.",
             use_container_width=True,
             type="primary",
         ):
-            # [Modifikasi] Reset status identifikasi sebelum analisis baru
             st.session_state.identification_done = False
             st.session_state.threshold_message = None
             st.session_state.show_detailed_solution = False
@@ -423,12 +416,9 @@ if st.session_state.current_page == "Identification":
             st.session_state.confidence_state = None
             st.session_state.predictions_state = None
 
-
-            with st.spinner("⏳ Analysis in progress..."):
+            with st.spinner("⏳ Analisis sedang berlangsung..."):
                 try:
-                    processed_image = preprocess_image(
-                        Image.open(st.session_state.uploaded_file) # Gunakan file dari session_state
-                    )
+                    processed_image = preprocess_image(Image.open(st.session_state.uploaded_file))
                     predictions = model.predict(processed_image)
                     predicted_class_index = np.argmax(predictions, axis=1)[0]
                     confidence = predictions[0][predicted_class_index] * 100
@@ -440,31 +430,28 @@ if st.session_state.current_page == "Identification":
 
                     if confidence < VERIFICATION_THRESHOLD:
                         st.session_state.threshold_message = (
-                            f"The model could not confidently verify this as a plant leaf from the supported categories, "
-                            f"or the object was not clearly detected (confidence: {confidence:.2f}% < {VERIFICATION_THRESHOLD}%). "
-                            "Please try uploading a clearer image of a pepper, tomato, or potato leaf."
+                            f"Model tidak dapat memverifikasi dengan yakin bahwa ini adalah gambar daun tanaman yang didukung, "
+                            f"atau objek tidak terdeteksi dengan jelas (keyakinan: {confidence:.2f}% < {VERIFICATION_THRESHOLD}%). "
+                            "Mohon coba unggah gambar daun paprika, tomat, atau kentang yang lebih jelas."
                         )
                         st.session_state.show_detailed_solution = False
                 except Exception as e:
-                    st.error(f"❌ **An error occurred during analysis:** {e}. Please try again.")
+                    st.error(f"❌ **Terjadi kesalahan saat analisis:** {e}. Mohon coba lagi.")
                     st.session_state.identification_done = False
                     st.session_state.threshold_message = None
-            st.rerun() # [Modifikasi] Rerun setelah analisis untuk update UI dengan hasil
-
-    else: # Jika tidak ada file yang diunggah
+            st.rerun()
+    else:
         st.markdown(
             "<div style='border: 2px dashed #4CAF50; padding: 50px; text-align: center; opacity: 0.7;'>"
-            "No image uploaded."
+            "Tidak ada gambar diunggah."
             "</div>",
             unsafe_allow_html=True,
         )
-        st.info("Upload a clear photo of the leaf for more accurate identification. Focus on the symptomatic area.")
+        st.info("Unggah foto daun yang jelas agar hasil identifikasi lebih akurat. Fokus pada area yang menunjukkan gejala.")
 
-
-    # --- DISPLAY IDENTIFICATION RESULTS ---
     if st.session_state.identification_done:
         st.markdown("---")
-        st.subheader("💡 Identification Results")
+        st.subheader("💡 Hasil Identifikasi")
 
         if st.session_state.threshold_message:
             st.warning(st.session_state.threshold_message)
@@ -473,155 +460,143 @@ if st.session_state.current_page == "Identification":
             predicted_class_name = st.session_state.predicted_class_name_state
 
             info = disease_info.get(predicted_class_name, {})
-            display_name = info.get("display_name", predicted_class_name.replace("_", " ").replace("__", ": "))
-            brief_description = info.get("brief_description", "Additional information is not available.")
+            display_name = info.get("nama_tampilan", predicted_class_name.replace("_", " ").replace("__", ": "))
+            brief_description = info.get("deskripsi_singkat", "Informasi tambahan tidak tersedia.")
 
             if confidence >= CONFIDENCE_THRESHOLD and "healthy" not in predicted_class_name.lower():
-                st.error(f"🚨 Detected: {display_name}")
-                st.metric(label="Confidence Level (Specific Condition)", value=f"{confidence:.2f}%", delta="Disease Detected", delta_color="inverse")
-                st.markdown(f"**Summary:** {brief_description}")
-                if st.button("📖 View Detailed Solution & Management", key="view_solution_button_disease", use_container_width=True): # [Modifikasi] Key unik
+                st.error(f"🚨 Terdeteksi: {display_name}")
+                st.metric(label="Tingkat Keyakinan (Kondisi Spesifik)", value=f"{confidence:.2f}%", delta="Penyakit Terdeteksi", delta_color="inverse")
+                st.markdown(f"**Ringkasan:** {brief_description}")
+                if st.button("📖 Lihat Detail Solusi & Penanganan", key="view_solution_button_disease", use_container_width=True):
                     st.session_state.show_detailed_solution = True
-                    st.rerun() # [Modifikasi] Rerun untuk menampilkan detail
-
+                    st.rerun()
             elif confidence >= CONFIDENCE_THRESHOLD and "healthy" in predicted_class_name.lower():
-                st.success(f"✅ Healthy Plant: {display_name}")
-                st.metric(label="Confidence Level (Specific Condition)", value=f"{confidence:.2f}%", delta="Healthy", delta_color="normal")
-                st.markdown(f"**Summary:** {brief_description}")
-                if st.button("💚 Tips for Maintaining Plant Health", key="view_healthy_tips_button", use_container_width=True):
+                st.success(f"✅ Tanaman Sehat: {display_name}")
+                st.metric(label="Tingkat Keyakinan (Kondisi Spesifik)", value=f"{confidence:.2f}%", delta="Sehat", delta_color="normal")
+                st.markdown(f"**Ringkasan:** {brief_description}")
+                if st.button("💚 Tips Menjaga Kesehatan Tanaman", key="view_healthy_tips_button", use_container_width=True):
                     st.session_state.show_detailed_solution = True
-                    st.rerun() # [Modifikasi] Rerun untuk menampilkan detail
+                    st.rerun()
             else:
-                st.warning(f"❓ Low Confidence for: {display_name}")
-                st.metric(label="Highest Confidence (Specific Condition)", value=f"{confidence:.2f}%", delta=f"Below {CONFIDENCE_THRESHOLD}% for this specific condition", delta_color="off")
-                st.write("The model identified a potential condition but with lower confidence. For more certainty, please ensure the image is clear or consult an expert.")
-                if st.button(f"📖 View Potential Details for {display_name}", key="view_low_confidence_solution_button", use_container_width=True):
+                st.warning(f"❓ Keyakinan Rendah untuk: {display_name}")
+                st.metric(label="Keyakinan Tertinggi (Kondisi Spesifik)", value=f"{confidence:.2f}%", delta=f"Di bawah {CONFIDENCE_THRESHOLD}% untuk kondisi ini", delta_color="off")
+                st.write("Model mengidentifikasi potensi kondisi namun dengan keyakinan lebih rendah. Untuk kepastian lebih, pastikan gambar jelas atau konsultasikan dengan ahli.")
+                if st.button(f"📖 Lihat Detail Potensial untuk {display_name}", key="view_low_confidence_solution_button", use_container_width=True):
                     st.session_state.show_detailed_solution = True
-                    st.rerun() # [Modifikasi] Rerun untuk menampilkan detail
+                    st.rerun()
         
-        # Tombol "Upload New Image" selalu ada jika identifikasi pernah dilakukan (sukses atau tidak)
         st.markdown("---")
         if st.button(
-            "🔄 **Upload New Image**",
-            key="upload_new_after_analysis", # [Modifikasi] Key unik
-            help="Click to clear the current result and upload another leaf photo.",
+            "🔄 **Unggah Gambar Baru**",
+            key="upload_new_after_analysis",
+            help="Klik untuk menghapus hasil saat ini dan unggah foto daun yang lain.",
             use_container_width=True,
             type="secondary",
         ):
             reset_app_state(clear_uploaded_file=True)
             st.rerun()
 
-
-    # --- DETAILED SOLUTION SECTION (CONDITIONALLY DISPLAYED) ---
     if st.session_state.get("show_detailed_solution", False) and \
        st.session_state.identification_done and \
        not st.session_state.threshold_message and \
        st.session_state.predicted_class_name_state:
-
         st.markdown("---")
         current_display_name = disease_info.get(st.session_state.predicted_class_name_state, {}).get(
-            "display_name",
-            st.session_state.predicted_class_name_state.replace("_", " ").replace("__", ": ")
+            "nama_tampilan", st.session_state.predicted_class_name_state.replace("_", " ").replace("__", ": ")
         )
-        st.header(f"🌿 Detailed Management for {current_display_name}")
-
+        st.header(f"🌿 Penanganan Detail untuk {current_display_name}")
         info_detail = disease_info.get(st.session_state.predicted_class_name_state, {})
-
         if info_detail:
             col_detail_1, col_detail_2 = st.columns(2)
             with col_detail_1:
-                with st.expander("📚 **Cause & Typical Symptoms**", expanded=True):
-                    st.markdown(f"**Main Cause:** {info_detail.get('cause', 'Not available.')}")
-                    st.markdown("**Symptoms to Look For:**")
-                    if isinstance(info_detail.get("symptoms"), list):
-                        for symptom in info_detail["symptoms"]:
+                with st.expander("📚 **Penyebab & Gejala Khas**", expanded=True):
+                    st.markdown(f"**Penyebab Utama:** {info_detail.get('penyebab', 'Tidak tersedia.')}")
+                    st.markdown("**Gejala yang Perlu Diperhatikan:**")
+                    if isinstance(info_detail.get("gejala"), list):
+                        for symptom in info_detail["gejala"]:
                             st.markdown(f"- {symptom}")
                     else:
-                        st.write(info_detail.get("symptoms", "Not available."))
+                        st.write(info_detail.get("gejala", "Tidak tersedia."))
             with col_detail_2:
-                with st.expander("👨‍🌾 **Solution & Management Steps**", expanded=True):
-                    st.markdown("**Recommendations:**")
-                    if isinstance(info_detail.get("solutions"), list):
-                        for solution_step in info_detail["solutions"]:
+                with st.expander("👨‍🌾 **Langkah Solusi & Penanganan**", expanded=True):
+                    st.markdown("**Rekomendasi:**")
+                    if isinstance(info_detail.get("solusi"), list):
+                        for solution_step in info_detail["solusi"]:
                             st.markdown(f"- {solution_step}")
                     else:
-                        st.write(info_detail.get("solutions", "Not available."))
+                        st.write(info_detail.get("solusi", "Tidak tersedia."))
             st.divider()
             if st.session_state.predictions_state is not None and not st.session_state.threshold_message:
-                with st.expander("🔬 **Full Probabilities (For Experts)**"):
-                    st.write("Below is the list of model probabilities for each category, from highest to lowest:")
+                with st.expander("🔬 **Probabilitas Lengkap (Untuk Ahli)**"):
+                    st.write("Berikut adalah daftar probabilitas model untuk setiap kategori, dari tertinggi ke terendah:")
                     sorted_indices = np.argsort(st.session_state.predictions_state[0])[::-1]
                     for i in sorted_indices:
                         prob = st.session_state.predictions_state[0][i] * 100
                         class_disp = disease_info.get(CLASS_NAMES[i], {}).get(
-                            "display_name", CLASS_NAMES[i].replace("_", " ").replace("__", ": ")
+                            "nama_tampilan", CLASS_NAMES[i].replace("_", " ").replace("__", ": ")
                         )
                         if i == np.argmax(st.session_state.predictions_state, axis=1)[0]:
-                            st.markdown(f"- **{class_disp}: {prob:.2f}%** (Main Prediction)")
+                            st.markdown(f"- **{class_disp}: {prob:.2f}%** (Prediksi Utama)")
                         else:
                             st.write(f"- {class_disp}: {prob:.2f}%")
         else:
-            st.warning("Sorry, detailed information for this result is not available in our database.")
+            st.warning("Maaf, informasi detail untuk hasil ini tidak tersedia dalam basis data kami.")
 
-elif st.session_state.current_page == "About":
-    # ... (Konten halaman About sama seperti sebelumnya)
-    st.title("💡 About AgroDetect")
+elif st.session_state.current_page == "Tentang":
+    st.title("💡 Tentang AgroDetect")
     st.write(
         """
-        **AgroDetect** is an innovative web application that empowers modern farmers with the power of **Machine Learning**.
-        Our mission is to provide early detection capabilities for pests and diseases on **pepper, tomato, and potato** leaves
-        simply through an image upload.
+        **AgroDetect** adalah aplikasi web inovatif yang memberdayakan petani modern dengan kekuatan **Machine Learning**.
+        Misi kami adalah memberikan kemampuan deteksi dini hama dan penyakit pada daun **paprika, tomat, dan kentang**
+        hanya melalui unggahan foto.
         """
     )
     st.divider()
-    st.subheader("Our Vision & Mission")
+    st.subheader("Visi & Misi Kami")
     st.write(
         """
-        **Vision:** To be a leading platform supporting sustainable agriculture through smart AI solutions.
-        **Mission:** To provide an accurate and accessible plant disease identification tool, along with practical management recommendations to enhance agricultural productivity.
+        **Visi:** Menjadi platform terdepan yang mendukung pertanian berkelanjutan melalui solusi AI cerdas.
+        **Misi:** Menyediakan alat identifikasi penyakit tanaman yang akurat dan mudah diakses, serta rekomendasi penanganan praktis untuk meningkatkan produktivitas pertanian.
         """
     )
-    st.subheader("Technology Behind the Scenes")
+    st.subheader("Teknologi di Balik Layar")
     st.write(
         """
-        AgroDetect is built upon an advanced **Convolutional Neural Network (CNN)** model, trained with the extensive and diverse
-        **[Plant Village](https://www.kaggle.com/datasets/arjuntejaswi/plant-village)** dataset.
-        This enables our model to recognize specific patterns and symptoms of various plant conditions.
+        AgroDetect dibangun di atas model **Convolutional Neural Network (CNN)** yang canggih, dilatih dengan dataset
+        **[Plant Village](https://www.kaggle.com/datasets/arjuntejaswi/plant-village)** yang masif dan beragam.
+        Ini memungkinkan model kami untuk mengenali pola dan gejala spesifik berbagai kondisi tanaman.
         """
     )
     st.info(
-        "This application is an initial diagnostic aid and does not replace consultation with professional agricultural experts."
+        "Aplikasi ini adalah alat bantu diagnosa awal dan tidak menggantikan konsultasi dengan ahli pertanian profesional."
     )
 
-
-elif st.session_state.current_page == "Team":
-    # ... (Konten halaman Team sama seperti sebelumnya)
-    st.title("👨‍💻 Development Team")
-    st.write("AgroDetect is the result of a Capstone project by **Team Laskar AI**.")
+elif st.session_state.current_page == "Tim":
+    st.title("👨‍💻 Tim Pengembang")
+    st.write("AgroDetect adalah hasil dari proyek Capstone oleh **Tim Laskar AI**.")
     st.divider()
-    st.subheader("Project Information")
+    st.subheader("Informasi Proyek")
     st.markdown(
         """
-        -   **Group ID:** LAI25-RM097
-        -   **Theme:** Smart Solutions for a Better Future
-        -   **Mentor:** Stevani Dwi Utomo (Mentoring session: June 5, 2025)
+        -   **ID Grup:** LAI25-RM097
+        -   **Tema:** Solusi Cerdas untuk Masa Depan yang Lebih Baik
+        -   **Pembimbing:** Stevani Dwi Utomo (Sesi mentoring: 5 Juni 2025)
         """
     )
-    st.subheader("Team Members")
+    st.subheader("Anggota Tim")
     st.markdown(
         """
-        We are individuals passionate about applying AI for real-world solutions:
+        Kami adalah individu yang bersemangat dalam menerapkan AI untuk solusi nyata:
         -   **Mukhamad Ikhsanudin** (A180YBF358) – Universitas Airlangga
         -   **Patuh Rujhan Al Istizhar** (A706YBF391) – Universitas Swadaya Gunung Jati
         -   **Rahmat Hidayat** (A573YBF408) – Universitas Lancang Kuning
         -   **Rifzki Adiyaksa** (A314YBF428) – Universitas Singaperbangsa Karawang
         """
     )
-    st.info("Together, we create innovation for better agriculture.")
-
+    st.info("Bersama, kami menciptakan inovasi untuk pertanian yang lebih baik.")
 
 st.markdown("---")
 st.markdown(
-    "<p style='text-align: center; color: grey;'>© 2025 AgroDetect. All rights reserved.</p>",
+    "<p style='text-align: center; color: grey;'>© 2025 AgroDetect. Hak cipta dilindungi.</p>",
     unsafe_allow_html=True,
 )
