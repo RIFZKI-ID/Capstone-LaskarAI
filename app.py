@@ -11,8 +11,9 @@ st.set_page_config(
 )
 
 # --- ML Model Path & Confidence Threshold ---
-MODEL_PATH = "best_model.keras"
-CONFIDENCE_THRESHOLD = 75
+MODEL_PATH = "best_model.keras"  # Ensure this model file is in the same directory
+CONFIDENCE_THRESHOLD = 75  # Confidence threshold for specific disease/health status results
+VERIFICATION_THRESHOLD = 80 # [Baru] Confidence threshold for verifying if it's a correct plant image
 
 # --- Disease & Health Information (Translated to English) ---
 CLASS_NAMES = [
@@ -298,6 +299,7 @@ def reset_app_state():
     st.session_state.confidence_state = None
     st.session_state.predictions_state = None
     st.session_state.show_detailed_solution = False
+    st.session_state.threshold_message = None # Reset threshold message
     st.session_state.file_uploader_key = str(np.random.rand())
 
 
@@ -311,12 +313,12 @@ if "identification_done" not in st.session_state:
     st.session_state.current_page = "Identification"
     st.session_state.file_uploader_key = "initial"
     st.session_state.uploaded_file = None
+    st.session_state.threshold_message = None
+
 
 # --- HEADER AND TOP NAVIGATION (CENTERED) ---
-# Use columns to center the header content
 header_container = st.container()
 with header_container:
-    # Centering logo and title using st.columns and markdown for alignment
     st.markdown(
         f"""
         <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
@@ -328,11 +330,9 @@ with header_container:
         unsafe_allow_html=True,
     )
 
-    # Centering navigation buttons using st.columns
-    # Create 5 columns: empty, button1, button2, button3, empty. Adjust ratios as needed.
     nav_placeholder_left, nav_col1, nav_col2, nav_col3, nav_placeholder_right = st.columns(
         [0.5, 1.5, 1.5, 1.5, 0.5]
-    ) # Adjust ratios for desired spacing
+    )
 
     with nav_col1:
         if st.button(
@@ -364,14 +364,13 @@ with header_container:
         ):
             st.session_state.current_page = "Team"
             st.rerun()
-
 st.divider()
 
 
 # --- MAIN PAGE CONTENT BASED ON NAVIGATION ---
 
 if st.session_state.current_page == "Identification":
-    st.markdown( # Kept the hero section title as it was specifically styled
+    st.markdown(
         "<h1 style='text-align: center; color: #4CAF50;'>🌱 AgroDetect: Identify Your Plant's Issue!</h1>",
         unsafe_allow_html=True,
     )
@@ -395,15 +394,11 @@ if st.session_state.current_page == "Identification":
     if current_uploaded_file is not None:
         if st.session_state.uploaded_file != current_uploaded_file:
             st.session_state.uploaded_file = current_uploaded_file
-            st.session_state.identification_done = False
-            st.session_state.predicted_class_name_state = None
-            st.session_state.confidence_state = None
-            st.session_state.predictions_state = None
-            st.session_state.show_detailed_solution = False
+            reset_app_state() # Full reset for new file to clear all previous states
+            st.session_state.uploaded_file = current_uploaded_file # Re-assign after reset
     elif st.session_state.uploaded_file is not None and current_uploaded_file is None:
-        st.session_state.uploaded_file = None
-        st.session_state.identification_done = False
-        # ... (reset other states)
+        reset_app_state() # Reset if file is removed
+
 
     if st.session_state.uploaded_file is not None:
         image = Image.open(st.session_state.uploaded_file)
@@ -429,6 +424,9 @@ if st.session_state.current_page == "Identification":
         ):
             with st.spinner("⏳ Analysis in progress..."):
                 try:
+                    st.session_state.threshold_message = None # Reset threshold message for new analysis
+                    st.session_state.identification_done = False # Reset identification status
+
                     processed_image = preprocess_image(
                         Image.open(st.session_state.uploaded_file)
                     )
@@ -438,10 +436,19 @@ if st.session_state.current_page == "Identification":
 
                     st.session_state.predictions_state = predictions
                     st.session_state.confidence_state = confidence
-                    st.session_state.identification_done = True
                     st.session_state.predicted_class_name_state = CLASS_NAMES[
                         predicted_class_index
                     ]
+                    st.session_state.identification_done = True # Set to true after successful prediction
+
+                    if confidence < VERIFICATION_THRESHOLD: # Using new VERIFICATION_THRESHOLD
+                        st.session_state.threshold_message = (
+                            f"The model could not confidently verify this as a plant leaf from the supported categories, "
+                            f"or the object was not clearly detected (confidence: {confidence:.2f}% < {VERIFICATION_THRESHOLD}%). "
+                            "Please try uploading a clearer image of a pepper, tomato, or potato leaf."
+                        )
+                        # Do not proceed to show disease-specific info if below this general verification threshold
+                        st.session_state.show_detailed_solution = False # Ensure solution details are not shown
 
                 except Exception as e:
                     st.error(
@@ -449,73 +456,82 @@ if st.session_state.current_page == "Identification":
                         "Please try again or upload a different image."
                     )
                     st.session_state.identification_done = False
+                    st.session_state.threshold_message = None
 
+        # --- DISPLAY IDENTIFICATION RESULTS ---
         if st.session_state.identification_done:
             st.markdown("---")
             st.subheader("💡 Identification Results")
 
-            confidence = st.session_state.confidence_state
-            predicted_class_name = st.session_state.predicted_class_name_state
-            predictions = st.session_state.predictions_state
-
-            info = disease_info.get(predicted_class_name, {})
-            display_name = info.get(
-                "display_name",
-                predicted_class_name.replace("_", " ").replace("__", ": "),
-            )
-            brief_description = info.get(
-                "brief_description", "Additional information is not available."
-            )
-
-            if (
-                confidence >= CONFIDENCE_THRESHOLD
-                and "healthy" not in predicted_class_name.lower()
-            ):
-                st.error(f"🚨 Detected: {display_name}")
-                st.metric(
-                    label="Confidence Level",
-                    value=f"{confidence:.2f}%",
-                    delta="Disease Detected",
-                    delta_color="inverse",
-                )
-                st.markdown(f"**Summary:** {brief_description}")
-
-                if st.button(
-                    "📖 View Detailed Solution & Management",
-                    key="view_solution_button",
-                    use_container_width=True,
-                ):
-                    st.session_state.show_detailed_solution = True
-
-            elif "healthy" in predicted_class_name.lower():
-                st.success(f"✅ Healthy Plant: {display_name}")
-                st.metric(
-                    label="Confidence Level",
-                    value=f"{confidence:.2f}%",
-                    delta="Healthy",
-                    delta_color="normal",
-                )
-                st.markdown(f"**Summary:** {brief_description}")
-
-                if st.button(
-                    "💚 Tips for Maintaining Plant Health",
-                    key="view_healthy_tips_button",
-                    use_container_width=True,
-                ):
-                    st.session_state.show_detailed_solution = True
+            if st.session_state.threshold_message:
+                st.warning(st.session_state.threshold_message)
             else:
-                st.warning("❓ Low Confidence Result")
-                st.metric(
-                    label="Highest Confidence",
-                    value=f"{confidence:.2f}%",
-                    delta=f"Below {CONFIDENCE_THRESHOLD}%",
-                    delta_color="off",
+                confidence = st.session_state.confidence_state
+                predicted_class_name = st.session_state.predicted_class_name_state
+
+                info = disease_info.get(predicted_class_name, {})
+                display_name = info.get(
+                    "display_name",
+                    predicted_class_name.replace("_", " ").replace("__", ": "),
                 )
-                st.warning(
-                    "The model could not identify the disease/pest with high confidence. "
-                    "This might be due to an unclear image, or a condition not in our training dataset. "
-                    "Please try uploading another image focusing on the symptoms or consult an expert."
+                brief_description = info.get(
+                    "brief_description", "Additional information is not available."
                 )
+
+                if (
+                    confidence >= CONFIDENCE_THRESHOLD # Original threshold for disease/healthy specific confidence
+                    and "healthy" not in predicted_class_name.lower()
+                ):
+                    st.error(f"🚨 Detected: {display_name}")
+                    st.metric(
+                        label="Confidence Level (Specific Condition)",
+                        value=f"{confidence:.2f}%",
+                        delta="Disease Detected",
+                        delta_color="inverse",
+                    )
+                    st.markdown(f"**Summary:** {brief_description}")
+                    if st.button(
+                        "📖 View Detailed Solution & Management",
+                        key="view_solution_button",
+                        use_container_width=True,
+                    ):
+                        st.session_state.show_detailed_solution = True
+
+                elif confidence >= CONFIDENCE_THRESHOLD and "healthy" in predicted_class_name.lower():
+                    st.success(f"✅ Healthy Plant: {display_name}")
+                    st.metric(
+                        label="Confidence Level (Specific Condition)",
+                        value=f"{confidence:.2f}%",
+                        delta="Healthy",
+                        delta_color="normal",
+                    )
+                    st.markdown(f"**Summary:** {brief_description}")
+                    if st.button(
+                        "💚 Tips for Maintaining Plant Health",
+                        key="view_healthy_tips_button",
+                        use_container_width=True,
+                    ):
+                        st.session_state.show_detailed_solution = True
+                else: # Confidence for specific condition is below CONFIDENCE_THRESHOLD (75%)
+                    st.warning(f"❓ Low Confidence for: {display_name}")
+                    st.metric(
+                        label="Highest Confidence (Specific Condition)",
+                        value=f"{confidence:.2f}%",
+                        delta=f"Below {CONFIDENCE_THRESHOLD}% for this specific condition",
+                        delta_color="off",
+                    )
+                    st.write(
+                        "The model identified a potential condition but with lower confidence. "
+                        "For more certainty, please ensure the image is clear or consult an expert."
+                    )
+                    # Optionally, still allow viewing details for low confidence specific predictions
+                    if st.button(
+                        f"📖 View Potential Details for {display_name}",
+                        key="view_low_confidence_solution_button",
+                        use_container_width=True,
+                    ):
+                        st.session_state.show_detailed_solution = True
+
 
             st.markdown("---")
             if st.button(
@@ -527,9 +543,12 @@ if st.session_state.current_page == "Identification":
                 reset_app_state()
                 st.rerun()
 
+    # --- DETAILED SOLUTION SECTION (CONDITIONALLY DISPLAYED) ---
     if (
         st.session_state.get("show_detailed_solution", False)
         and st.session_state.identification_done
+        and not st.session_state.threshold_message # Only show if not overridden by general verification threshold
+        and st.session_state.predicted_class_name_state # Ensure there's a predicted class
     ):
         st.markdown("---")
         current_display_name = disease_info.get(st.session_state.predicted_class_name_state, {}).get(
@@ -562,11 +581,12 @@ if st.session_state.current_page == "Identification":
                     else:
                         st.write(info_detail.get("solutions", "Not available."))
             st.divider()
-            with st.expander("🔬 **Full Probabilities (For Experts)**"):
-                st.write(
-                    "Below is the list of model probabilities for each category, from highest to lowest:"
-                )
-                if st.session_state.predictions_state is not None:
+            # Only show probabilities if identification was generally successful (not threshold_message)
+            if st.session_state.predictions_state is not None and not st.session_state.threshold_message:
+                with st.expander("🔬 **Full Probabilities (For Experts)**"):
+                    st.write(
+                        "Below is the list of model probabilities for each category, from highest to lowest:"
+                    )
                     sorted_indices = np.argsort(st.session_state.predictions_state[0])[::-1]
                     for i in sorted_indices:
                         prob = st.session_state.predictions_state[0][i] * 100
@@ -578,13 +598,12 @@ if st.session_state.current_page == "Identification":
                             st.markdown(f"- **{class_disp}: {prob:.2f}%** (Main Prediction)")
                         else:
                             st.write(f"- {class_disp}: {prob:.2f}%")
-                else:
-                    st.write("Probability data is not available.")
         else:
             st.warning("Sorry, detailed information for this result is not available in our database.")
 
+
 elif st.session_state.current_page == "About":
-    st.title("💡 About AgroDetect") # Centered by default by st.title
+    st.title("💡 About AgroDetect")
     st.write(
         """
         **AgroDetect** is an innovative web application that empowers modern farmers with the power of **Machine Learning**.
@@ -613,7 +632,7 @@ elif st.session_state.current_page == "About":
     )
 
 elif st.session_state.current_page == "Team":
-    st.title("👨‍💻 Development Team") # Centered by default
+    st.title("👨‍💻 Development Team")
     st.write("AgroDetect is the result of a Capstone project by **Team Laskar AI**.")
     st.divider()
     st.subheader("Project Information")
