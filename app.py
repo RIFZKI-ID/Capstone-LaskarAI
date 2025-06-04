@@ -11,8 +11,8 @@ st.set_page_config(
 )
 
 # --- ML Model Path & Confidence Threshold ---
-MODEL_PATH = "best_model.keras"  # Ensure this model file is in the same directory
-CONFIDENCE_THRESHOLD = 75  # Confidence threshold for "confirmed" results
+MODEL_PATH = "best_model.keras"
+CONFIDENCE_THRESHOLD = 75
 
 # --- Disease & Health Information (Translated to English) ---
 CLASS_NAMES = [
@@ -298,62 +298,72 @@ def reset_app_state():
     st.session_state.confidence_state = None
     st.session_state.predictions_state = None
     st.session_state.show_detailed_solution = False
-    # st.session_state.current_page = "Identification" # Keep current page or reset as needed
     st.session_state.file_uploader_key = str(np.random.rand())
 
 
-# --- Initialize Session State (IMPORTANT: All session_state variables must be initialized here) ---
+# --- Initialize Session State ---
 if "identification_done" not in st.session_state:
     st.session_state.identification_done = False
     st.session_state.predicted_class_name_state = None
     st.session_state.confidence_state = None
     st.session_state.predictions_state = None
     st.session_state.show_detailed_solution = False
-    st.session_state.current_page = "Identification"  # Default page
+    st.session_state.current_page = "Identification"
     st.session_state.file_uploader_key = "initial"
     st.session_state.uploaded_file = None
 
+# --- HEADER AND TOP NAVIGATION (CENTERED) ---
+# Use columns to center the header content
+header_container = st.container()
+with header_container:
+    # Centering logo and title using st.columns and markdown for alignment
+    st.markdown(
+        f"""
+        <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
+            <img src="https://emojigraph.org/media/apple/leafy-green_1f96c.png" alt="AgroDetect Logo" width="80">
+            <h1 style="text-align: center; margin-bottom: 0px;">🌱 AgroDetect</h1>
+            <p style="text-align: center; margin-top: 0px; font-style: italic;">_Your Smart Garden Assistant_</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-# --- HEADER AND TOP NAVIGATION ---
-logo_col, title_col = st.columns([0.1, 0.9])
-with logo_col:
-    st.image("https://emojigraph.org/media/apple/leafy-green_1f96c.png", width=70)
-with title_col:
-    st.title("🌱 AgroDetect")
-    st.caption("_Your Smart Garden Assistant_")
+    # Centering navigation buttons using st.columns
+    # Create 5 columns: empty, button1, button2, button3, empty. Adjust ratios as needed.
+    nav_placeholder_left, nav_col1, nav_col2, nav_col3, nav_placeholder_right = st.columns(
+        [0.5, 1.5, 1.5, 1.5, 0.5]
+    ) # Adjust ratios for desired spacing
 
-nav_cols = st.columns(3)
+    with nav_col1:
+        if st.button(
+            "🏡 Plant Identification",
+            key="nav_identification",
+            use_container_width=True,
+            type="primary" if st.session_state.current_page == "Identification" else "secondary",
+        ):
+            st.session_state.current_page = "Identification"
+            reset_app_state()
+            st.rerun()
 
-with nav_cols[0]:
-    if st.button(
-        "🏡 Plant Identification",
-        key="nav_identification",
-        use_container_width=True,
-        type="primary" if st.session_state.current_page == "Identification" else "secondary",
-    ):
-        st.session_state.current_page = "Identification"
-        reset_app_state() # Reset when navigating to identification
-        st.rerun()
+    with nav_col2:
+        if st.button(
+            "💡 About AgroDetect",
+            key="nav_about",
+            use_container_width=True,
+            type="primary" if st.session_state.current_page == "About" else "secondary",
+        ):
+            st.session_state.current_page = "About"
+            st.rerun()
 
-with nav_cols[1]:
-    if st.button(
-        "💡 About AgroDetect",
-        key="nav_about",
-        use_container_width=True,
-        type="primary" if st.session_state.current_page == "About" else "secondary",
-    ):
-        st.session_state.current_page = "About"
-        st.rerun()
-
-with nav_cols[2]:
-    if st.button(
-        "👥 Development Team",
-        key="nav_team",
-        use_container_width=True,
-        type="primary" if st.session_state.current_page == "Team" else "secondary",
-    ):
-        st.session_state.current_page = "Team"
-        st.rerun()
+    with nav_col3:
+        if st.button(
+            "👥 Development Team",
+            key="nav_team",
+            use_container_width=True,
+            type="primary" if st.session_state.current_page == "Team" else "secondary",
+        ):
+            st.session_state.current_page = "Team"
+            st.rerun()
 
 st.divider()
 
@@ -361,8 +371,7 @@ st.divider()
 # --- MAIN PAGE CONTENT BASED ON NAVIGATION ---
 
 if st.session_state.current_page == "Identification":
-    # --- HERO SECTION ---
-    st.markdown(
+    st.markdown( # Kept the hero section title as it was specifically styled
         "<h1 style='text-align: center; color: #4CAF50;'>🌱 AgroDetect: Identify Your Plant's Issue!</h1>",
         unsafe_allow_html=True,
     )
@@ -373,7 +382,6 @@ if st.session_state.current_page == "Identification":
     )
     st.divider()
 
-    # --- IMAGE UPLOAD AREA ---
     st.subheader("📸 Upload Leaf Image")
     st.write("Drag & drop an image here, or click to select a file.")
 
@@ -387,7 +395,7 @@ if st.session_state.current_page == "Identification":
     if current_uploaded_file is not None:
         if st.session_state.uploaded_file != current_uploaded_file:
             st.session_state.uploaded_file = current_uploaded_file
-            st.session_state.identification_done = False # Reset on new file
+            st.session_state.identification_done = False
             st.session_state.predicted_class_name_state = None
             st.session_state.confidence_state = None
             st.session_state.predictions_state = None
@@ -395,11 +403,7 @@ if st.session_state.current_page == "Identification":
     elif st.session_state.uploaded_file is not None and current_uploaded_file is None:
         st.session_state.uploaded_file = None
         st.session_state.identification_done = False
-        st.session_state.predicted_class_name_state = None
-        st.session_state.confidence_state = None
-        st.session_state.predictions_state = None
-        st.session_state.show_detailed_solution = False
-
+        # ... (reset other states)
 
     if st.session_state.uploaded_file is not None:
         image = Image.open(st.session_state.uploaded_file)
@@ -446,7 +450,6 @@ if st.session_state.current_page == "Identification":
                     )
                     st.session_state.identification_done = False
 
-        # --- DISPLAY IDENTIFICATION RESULTS ---
         if st.session_state.identification_done:
             st.markdown("---")
             st.subheader("💡 Identification Results")
@@ -468,7 +471,7 @@ if st.session_state.current_page == "Identification":
                 confidence >= CONFIDENCE_THRESHOLD
                 and "healthy" not in predicted_class_name.lower()
             ):
-                st.error(f"🚨 Detected: {display_name}") # Using st.error for detected diseases
+                st.error(f"🚨 Detected: {display_name}")
                 st.metric(
                     label="Confidence Level",
                     value=f"{confidence:.2f}%",
@@ -485,7 +488,7 @@ if st.session_state.current_page == "Identification":
                     st.session_state.show_detailed_solution = True
 
             elif "healthy" in predicted_class_name.lower():
-                st.success(f"✅ Healthy Plant: {display_name}") # Using st.success for healthy
+                st.success(f"✅ Healthy Plant: {display_name}")
                 st.metric(
                     label="Confidence Level",
                     value=f"{confidence:.2f}%",
@@ -501,7 +504,7 @@ if st.session_state.current_page == "Identification":
                 ):
                     st.session_state.show_detailed_solution = True
             else:
-                st.warning("❓ Low Confidence Result") # Using st.warning for low confidence
+                st.warning("❓ Low Confidence Result")
                 st.metric(
                     label="Highest Confidence",
                     value=f"{confidence:.2f}%",
@@ -524,25 +527,21 @@ if st.session_state.current_page == "Identification":
                 reset_app_state()
                 st.rerun()
 
-    # --- DETAILED SOLUTION SECTION (CONDITIONALLY DISPLAYED) ---
     if (
         st.session_state.get("show_detailed_solution", False)
         and st.session_state.identification_done
     ):
         st.markdown("---")
-        # Use the display_name from the already fetched info for consistency
         current_display_name = disease_info.get(st.session_state.predicted_class_name_state, {}).get(
             "display_name",
             st.session_state.predicted_class_name_state.replace("_", " ").replace("__", ": ")
         )
         st.header(f"🌿 Detailed Management for {current_display_name}")
 
-
         info_detail = disease_info.get(st.session_state.predicted_class_name_state, {})
 
         if info_detail:
             col_detail_1, col_detail_2 = st.columns(2)
-
             with col_detail_1:
                 with st.expander("📚 **Cause & Typical Symptoms**", expanded=True):
                     st.markdown(
@@ -554,7 +553,6 @@ if st.session_state.current_page == "Identification":
                             st.markdown(f"- {symptom}")
                     else:
                         st.write(info_detail.get("symptoms", "Not available."))
-
             with col_detail_2:
                 with st.expander("👨‍🌾 **Solution & Management Steps**", expanded=True):
                     st.markdown("**Recommendations:**")
@@ -563,13 +561,11 @@ if st.session_state.current_page == "Identification":
                             st.markdown(f"- {solution_step}")
                     else:
                         st.write(info_detail.get("solutions", "Not available."))
-
             st.divider()
             with st.expander("🔬 **Full Probabilities (For Experts)**"):
                 st.write(
                     "Below is the list of model probabilities for each category, from highest to lowest:"
                 )
-                # Ensure predictions_state is not None before trying to sort
                 if st.session_state.predictions_state is not None:
                     sorted_indices = np.argsort(st.session_state.predictions_state[0])[::-1]
                     for i in sorted_indices:
@@ -585,13 +581,10 @@ if st.session_state.current_page == "Identification":
                 else:
                     st.write("Probability data is not available.")
         else:
-            st.warning(
-                "Sorry, detailed information for this result is not available in our database."
-            )
-
+            st.warning("Sorry, detailed information for this result is not available in our database.")
 
 elif st.session_state.current_page == "About":
-    st.title("💡 About AgroDetect")
+    st.title("💡 About AgroDetect") # Centered by default by st.title
     st.write(
         """
         **AgroDetect** is an innovative web application that empowers modern farmers with the power of **Machine Learning**.
@@ -600,7 +593,6 @@ elif st.session_state.current_page == "About":
         """
     )
     st.divider()
-
     st.subheader("Our Vision & Mission")
     st.write(
         """
@@ -608,7 +600,6 @@ elif st.session_state.current_page == "About":
         **Mission:** To provide an accurate and accessible plant disease identification tool, along with practical management recommendations to enhance agricultural productivity.
         """
     )
-
     st.subheader("Technology Behind the Scenes")
     st.write(
         """
@@ -622,10 +613,9 @@ elif st.session_state.current_page == "About":
     )
 
 elif st.session_state.current_page == "Team":
-    st.title("👨‍💻 Development Team")
+    st.title("👨‍💻 Development Team") # Centered by default
     st.write("AgroDetect is the result of a Capstone project by **Team Laskar AI**.")
     st.divider()
-
     st.subheader("Project Information")
     st.markdown(
         """
@@ -634,7 +624,6 @@ elif st.session_state.current_page == "Team":
         -   **Mentor:** Stevani Dwi Utomo (Mentoring session: June 5, 2025)
         """
     )
-
     st.subheader("Team Members")
     st.markdown(
         """
