@@ -1,0 +1,7 @@
+[theme]
+base="dark"
+primaryColor="#4CAF50" # You can keep your primary color
+backgroundColor="#0E1117" # Typical dark background
+secondaryBackgroundColor="#262730" # Typical dark secondary background
+textColor="#FAFAFA"
+font="sans serif"
