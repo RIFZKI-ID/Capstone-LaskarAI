@@ -11,9 +11,9 @@ st.set_page_config(
 )
 
 # --- ML Model Path & Confidence Threshold ---
-MODEL_PATH = "best_model.keras"  # Ensure this model file is in the same directory
-CONFIDENCE_THRESHOLD = 75  # Confidence threshold for specific disease/health status results
-VERIFICATION_THRESHOLD = 80 # [Baru] Confidence threshold for verifying if it's a correct plant image
+MODEL_PATH = "best_model.keras"
+CONFIDENCE_THRESHOLD = 75
+VERIFICATION_THRESHOLD = 80
 
 # --- Disease & Health Information (Translated to English) ---
 CLASS_NAMES = [
@@ -254,11 +254,9 @@ disease_info = {
     },
 }
 
-
 # --- Image Preprocessing Function ---
 @st.cache_data
 def preprocess_image(_image: Image.Image) -> np.ndarray:
-    """Processes the uploaded image for model prediction."""
     if _image.mode != "RGB":
         _image = _image.convert("RGB")
     target_size = (128, 128)
@@ -268,55 +266,51 @@ def preprocess_image(_image: Image.Image) -> np.ndarray:
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
-
 # --- Cache ML Model ---
 @st.cache_resource
 def load_ml_model():
-    """Loads the pre-trained TensorFlow/Keras model."""
     try:
         model = tf.keras.models.load_model(MODEL_PATH)
         return model
     except Exception as e:
-        st.error(
-            f"❌ **Oops!** The Machine Learning model failed to load from '{MODEL_PATH}'. Error: {e}"
-        )
-        st.warning(
-            "This might happen if the model file is missing or corrupted. "
-            f"Ensure `best_model.keras` is in the correct location."
-        )
+        st.error(f"❌ **Oops!** Model failed to load: {e}")
         st.stop()
-
-
 model = load_ml_model()
 
-
 # --- Function to Reset App State ---
-def reset_app_state():
-    """Resets all relevant session states to clear results and allow new uploads."""
-    st.session_state.uploaded_file = None
+def reset_app_state(clear_uploaded_file=True): # [Modifikasi] Tambah parameter
+    if clear_uploaded_file:
+        st.session_state.uploaded_file = None
+        st.session_state.file_uploader_key = str(np.random.rand())
     st.session_state.identification_done = False
     st.session_state.predicted_class_name_state = None
     st.session_state.confidence_state = None
     st.session_state.predictions_state = None
     st.session_state.show_detailed_solution = False
-    st.session_state.threshold_message = None # Reset threshold message
-    st.session_state.file_uploader_key = str(np.random.rand())
-
-
-# --- Initialize Session State ---
-if "identification_done" not in st.session_state:
-    st.session_state.identification_done = False
-    st.session_state.predicted_class_name_state = None
-    st.session_state.confidence_state = None
-    st.session_state.predictions_state = None
-    st.session_state.show_detailed_solution = False
-    st.session_state.current_page = "Identification"
-    st.session_state.file_uploader_key = "initial"
-    st.session_state.uploaded_file = None
     st.session_state.threshold_message = None
 
+# --- Initialize Session State ---
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "Identification"
+if "identification_done" not in st.session_state:
+    st.session_state.identification_done = False
+if "predicted_class_name_state" not in st.session_state:
+    st.session_state.predicted_class_name_state = None
+if "confidence_state" not in st.session_state:
+    st.session_state.confidence_state = None
+if "predictions_state" not in st.session_state:
+    st.session_state.predictions_state = None
+if "show_detailed_solution" not in st.session_state:
+    st.session_state.show_detailed_solution = False
+if "file_uploader_key" not in st.session_state:
+    st.session_state.file_uploader_key = "initial"
+if "uploaded_file" not in st.session_state:
+    st.session_state.uploaded_file = None
+if "threshold_message" not in st.session_state:
+    st.session_state.threshold_message = None
 
 # --- HEADER AND TOP NAVIGATION (CENTERED) ---
+# ... (kode header dan navigasi tetap sama)
 header_container = st.container()
 with header_container:
     st.markdown(
@@ -342,7 +336,7 @@ with header_container:
             type="primary" if st.session_state.current_page == "Identification" else "secondary",
         ):
             st.session_state.current_page = "Identification"
-            reset_app_state()
+            reset_app_state(clear_uploaded_file=True) # [Modifikasi] Pastikan file direset saat ke halaman identifikasi
             st.rerun()
 
     with nav_col2:
@@ -366,9 +360,7 @@ with header_container:
             st.rerun()
 st.divider()
 
-
 # --- MAIN PAGE CONTENT BASED ON NAVIGATION ---
-
 if st.session_state.current_page == "Identification":
     st.markdown(
         "<h1 style='text-align: center; color: #4CAF50;'>🌱 AgroDetect: Identify Your Plant's Issue!</h1>",
@@ -384,37 +376,38 @@ if st.session_state.current_page == "Identification":
     st.subheader("📸 Upload Leaf Image")
     st.write("Drag & drop an image here, or click to select a file.")
 
-    current_uploaded_file = st.file_uploader(
+    # Menggunakan current_uploaded_file untuk menangkap hasil dari file_uploader
+    current_uploaded_file_widget = st.file_uploader(
         "Select a leaf image (JPG, PNG):",
         type=["jpg", "jpeg", "png"],
         key=st.session_state.file_uploader_key,
         label_visibility="collapsed",
     )
 
-    if current_uploaded_file is not None:
-        if st.session_state.uploaded_file != current_uploaded_file:
-            st.session_state.uploaded_file = current_uploaded_file
-            reset_app_state() # Full reset for new file to clear all previous states
-            st.session_state.uploaded_file = current_uploaded_file # Re-assign after reset
-    elif st.session_state.uploaded_file is not None and current_uploaded_file is None:
-        reset_app_state() # Reset if file is removed
+    # Logika untuk menangani perubahan file yang diunggah
+    if current_uploaded_file_widget is not None:
+        # Jika file baru diunggah (berbeda dari yang ada di session state), perbarui session state
+        # dan reset status identifikasi agar analisis baru bisa dilakukan.
+        if st.session_state.uploaded_file is None or \
+           (st.session_state.uploaded_file is not None and \
+            (current_uploaded_file_widget.name != st.session_state.uploaded_file.name or \
+             current_uploaded_file_widget.size != st.session_state.uploaded_file.size)):
+            st.session_state.uploaded_file = current_uploaded_file_widget
+            reset_app_state(clear_uploaded_file=False) # [Modifikasi] Jangan hapus file yang baru saja di-set
+            st.session_state.uploaded_file = current_uploaded_file_widget # [Modifikasi] Pastikan file tetap ada setelah reset parsial
+            st.rerun() # Rerun untuk memastikan UI update dengan file baru
+    elif st.session_state.uploaded_file is not None and current_uploaded_file_widget is None:
+        # Jika file_uploader menjadi None (misalnya karena key direset dan tidak ada file dipilih lagi),
+        # reset state yang relevan jika sebelumnya ada file.
+        reset_app_state(clear_uploaded_file=True)
+        st.rerun()
 
 
     if st.session_state.uploaded_file is not None:
         image = Image.open(st.session_state.uploaded_file)
         st.image(image, caption="Your Leaf Image", use_container_width=True)
-    else:
-        st.markdown(
-            "<div style='border: 2px dashed #4CAF50; padding: 50px; text-align: center; opacity: 0.7;'>"
-            "No image uploaded."
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        st.info(
-            "Upload a clear photo of the leaf for more accurate identification. Focus on the symptomatic area."
-        )
 
-    if st.session_state.uploaded_file is not None:
+        # Tombol Analisis hanya muncul jika ada file yang diunggah
         if st.button(
             "✨ **Start Smart Analysis!**",
             key="analyze_button",
@@ -422,13 +415,19 @@ if st.session_state.current_page == "Identification":
             use_container_width=True,
             type="primary",
         ):
+            # [Modifikasi] Reset status identifikasi sebelum analisis baru
+            st.session_state.identification_done = False
+            st.session_state.threshold_message = None
+            st.session_state.show_detailed_solution = False
+            st.session_state.predicted_class_name_state = None
+            st.session_state.confidence_state = None
+            st.session_state.predictions_state = None
+
+
             with st.spinner("⏳ Analysis in progress..."):
                 try:
-                    st.session_state.threshold_message = None # Reset threshold message for new analysis
-                    st.session_state.identification_done = False # Reset identification status
-
                     processed_image = preprocess_image(
-                        Image.open(st.session_state.uploaded_file)
+                        Image.open(st.session_state.uploaded_file) # Gunakan file dari session_state
                     )
                     predictions = model.predict(processed_image)
                     predicted_class_index = np.argmax(predictions, axis=1)[0]
@@ -436,120 +435,89 @@ if st.session_state.current_page == "Identification":
 
                     st.session_state.predictions_state = predictions
                     st.session_state.confidence_state = confidence
-                    st.session_state.predicted_class_name_state = CLASS_NAMES[
-                        predicted_class_index
-                    ]
-                    st.session_state.identification_done = True # Set to true after successful prediction
+                    st.session_state.predicted_class_name_state = CLASS_NAMES[predicted_class_index]
+                    st.session_state.identification_done = True
 
-                    if confidence < VERIFICATION_THRESHOLD: # Using new VERIFICATION_THRESHOLD
+                    if confidence < VERIFICATION_THRESHOLD:
                         st.session_state.threshold_message = (
                             f"The model could not confidently verify this as a plant leaf from the supported categories, "
                             f"or the object was not clearly detected (confidence: {confidence:.2f}% < {VERIFICATION_THRESHOLD}%). "
                             "Please try uploading a clearer image of a pepper, tomato, or potato leaf."
                         )
-                        # Do not proceed to show disease-specific info if below this general verification threshold
-                        st.session_state.show_detailed_solution = False # Ensure solution details are not shown
-
+                        st.session_state.show_detailed_solution = False
                 except Exception as e:
-                    st.error(
-                        f"❌ **An error occurred during analysis:** {e}. "
-                        "Please try again or upload a different image."
-                    )
+                    st.error(f"❌ **An error occurred during analysis:** {e}. Please try again.")
                     st.session_state.identification_done = False
                     st.session_state.threshold_message = None
+            st.rerun() # [Modifikasi] Rerun setelah analisis untuk update UI dengan hasil
 
-        # --- DISPLAY IDENTIFICATION RESULTS ---
-        if st.session_state.identification_done:
-            st.markdown("---")
-            st.subheader("💡 Identification Results")
+    else: # Jika tidak ada file yang diunggah
+        st.markdown(
+            "<div style='border: 2px dashed #4CAF50; padding: 50px; text-align: center; opacity: 0.7;'>"
+            "No image uploaded."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        st.info("Upload a clear photo of the leaf for more accurate identification. Focus on the symptomatic area.")
 
-            if st.session_state.threshold_message:
-                st.warning(st.session_state.threshold_message)
+
+    # --- DISPLAY IDENTIFICATION RESULTS ---
+    if st.session_state.identification_done:
+        st.markdown("---")
+        st.subheader("💡 Identification Results")
+
+        if st.session_state.threshold_message:
+            st.warning(st.session_state.threshold_message)
+        else:
+            confidence = st.session_state.confidence_state
+            predicted_class_name = st.session_state.predicted_class_name_state
+
+            info = disease_info.get(predicted_class_name, {})
+            display_name = info.get("display_name", predicted_class_name.replace("_", " ").replace("__", ": "))
+            brief_description = info.get("brief_description", "Additional information is not available.")
+
+            if confidence >= CONFIDENCE_THRESHOLD and "healthy" not in predicted_class_name.lower():
+                st.error(f"🚨 Detected: {display_name}")
+                st.metric(label="Confidence Level (Specific Condition)", value=f"{confidence:.2f}%", delta="Disease Detected", delta_color="inverse")
+                st.markdown(f"**Summary:** {brief_description}")
+                if st.button("📖 View Detailed Solution & Management", key="view_solution_button_disease", use_container_width=True): # [Modifikasi] Key unik
+                    st.session_state.show_detailed_solution = True
+                    st.rerun() # [Modifikasi] Rerun untuk menampilkan detail
+
+            elif confidence >= CONFIDENCE_THRESHOLD and "healthy" in predicted_class_name.lower():
+                st.success(f"✅ Healthy Plant: {display_name}")
+                st.metric(label="Confidence Level (Specific Condition)", value=f"{confidence:.2f}%", delta="Healthy", delta_color="normal")
+                st.markdown(f"**Summary:** {brief_description}")
+                if st.button("💚 Tips for Maintaining Plant Health", key="view_healthy_tips_button", use_container_width=True):
+                    st.session_state.show_detailed_solution = True
+                    st.rerun() # [Modifikasi] Rerun untuk menampilkan detail
             else:
-                confidence = st.session_state.confidence_state
-                predicted_class_name = st.session_state.predicted_class_name_state
+                st.warning(f"❓ Low Confidence for: {display_name}")
+                st.metric(label="Highest Confidence (Specific Condition)", value=f"{confidence:.2f}%", delta=f"Below {CONFIDENCE_THRESHOLD}% for this specific condition", delta_color="off")
+                st.write("The model identified a potential condition but with lower confidence. For more certainty, please ensure the image is clear or consult an expert.")
+                if st.button(f"📖 View Potential Details for {display_name}", key="view_low_confidence_solution_button", use_container_width=True):
+                    st.session_state.show_detailed_solution = True
+                    st.rerun() # [Modifikasi] Rerun untuk menampilkan detail
+        
+        # Tombol "Upload New Image" selalu ada jika identifikasi pernah dilakukan (sukses atau tidak)
+        st.markdown("---")
+        if st.button(
+            "🔄 **Upload New Image**",
+            key="upload_new_after_analysis", # [Modifikasi] Key unik
+            help="Click to clear the current result and upload another leaf photo.",
+            use_container_width=True,
+            type="secondary",
+        ):
+            reset_app_state(clear_uploaded_file=True)
+            st.rerun()
 
-                info = disease_info.get(predicted_class_name, {})
-                display_name = info.get(
-                    "display_name",
-                    predicted_class_name.replace("_", " ").replace("__", ": "),
-                )
-                brief_description = info.get(
-                    "brief_description", "Additional information is not available."
-                )
-
-                if (
-                    confidence >= CONFIDENCE_THRESHOLD # Original threshold for disease/healthy specific confidence
-                    and "healthy" not in predicted_class_name.lower()
-                ):
-                    st.error(f"🚨 Detected: {display_name}")
-                    st.metric(
-                        label="Confidence Level (Specific Condition)",
-                        value=f"{confidence:.2f}%",
-                        delta="Disease Detected",
-                        delta_color="inverse",
-                    )
-                    st.markdown(f"**Summary:** {brief_description}")
-                    if st.button(
-                        "📖 View Detailed Solution & Management",
-                        key="view_solution_button",
-                        use_container_width=True,
-                    ):
-                        st.session_state.show_detailed_solution = True
-
-                elif confidence >= CONFIDENCE_THRESHOLD and "healthy" in predicted_class_name.lower():
-                    st.success(f"✅ Healthy Plant: {display_name}")
-                    st.metric(
-                        label="Confidence Level (Specific Condition)",
-                        value=f"{confidence:.2f}%",
-                        delta="Healthy",
-                        delta_color="normal",
-                    )
-                    st.markdown(f"**Summary:** {brief_description}")
-                    if st.button(
-                        "💚 Tips for Maintaining Plant Health",
-                        key="view_healthy_tips_button",
-                        use_container_width=True,
-                    ):
-                        st.session_state.show_detailed_solution = True
-                else: # Confidence for specific condition is below CONFIDENCE_THRESHOLD (75%)
-                    st.warning(f"❓ Low Confidence for: {display_name}")
-                    st.metric(
-                        label="Highest Confidence (Specific Condition)",
-                        value=f"{confidence:.2f}%",
-                        delta=f"Below {CONFIDENCE_THRESHOLD}% for this specific condition",
-                        delta_color="off",
-                    )
-                    st.write(
-                        "The model identified a potential condition but with lower confidence. "
-                        "For more certainty, please ensure the image is clear or consult an expert."
-                    )
-                    # Optionally, still allow viewing details for low confidence specific predictions
-                    if st.button(
-                        f"📖 View Potential Details for {display_name}",
-                        key="view_low_confidence_solution_button",
-                        use_container_width=True,
-                    ):
-                        st.session_state.show_detailed_solution = True
-
-
-            st.markdown("---")
-            if st.button(
-                "🔄 **Upload New Image**",
-                help="Click to clear the current result and upload another leaf photo.",
-                use_container_width=True,
-                type="secondary",
-            ):
-                reset_app_state()
-                st.rerun()
 
     # --- DETAILED SOLUTION SECTION (CONDITIONALLY DISPLAYED) ---
-    if (
-        st.session_state.get("show_detailed_solution", False)
-        and st.session_state.identification_done
-        and not st.session_state.threshold_message # Only show if not overridden by general verification threshold
-        and st.session_state.predicted_class_name_state # Ensure there's a predicted class
-    ):
+    if st.session_state.get("show_detailed_solution", False) and \
+       st.session_state.identification_done and \
+       not st.session_state.threshold_message and \
+       st.session_state.predicted_class_name_state:
+
         st.markdown("---")
         current_display_name = disease_info.get(st.session_state.predicted_class_name_state, {}).get(
             "display_name",
@@ -563,9 +531,7 @@ if st.session_state.current_page == "Identification":
             col_detail_1, col_detail_2 = st.columns(2)
             with col_detail_1:
                 with st.expander("📚 **Cause & Typical Symptoms**", expanded=True):
-                    st.markdown(
-                        f"**Main Cause:** {info_detail.get('cause', 'Not available.')}"
-                    )
+                    st.markdown(f"**Main Cause:** {info_detail.get('cause', 'Not available.')}")
                     st.markdown("**Symptoms to Look For:**")
                     if isinstance(info_detail.get("symptoms"), list):
                         for symptom in info_detail["symptoms"]:
@@ -581,18 +547,14 @@ if st.session_state.current_page == "Identification":
                     else:
                         st.write(info_detail.get("solutions", "Not available."))
             st.divider()
-            # Only show probabilities if identification was generally successful (not threshold_message)
             if st.session_state.predictions_state is not None and not st.session_state.threshold_message:
                 with st.expander("🔬 **Full Probabilities (For Experts)**"):
-                    st.write(
-                        "Below is the list of model probabilities for each category, from highest to lowest:"
-                    )
+                    st.write("Below is the list of model probabilities for each category, from highest to lowest:")
                     sorted_indices = np.argsort(st.session_state.predictions_state[0])[::-1]
                     for i in sorted_indices:
                         prob = st.session_state.predictions_state[0][i] * 100
                         class_disp = disease_info.get(CLASS_NAMES[i], {}).get(
-                            "display_name",
-                            CLASS_NAMES[i].replace("_", " ").replace("__", ": "),
+                            "display_name", CLASS_NAMES[i].replace("_", " ").replace("__", ": ")
                         )
                         if i == np.argmax(st.session_state.predictions_state, axis=1)[0]:
                             st.markdown(f"- **{class_disp}: {prob:.2f}%** (Main Prediction)")
@@ -601,8 +563,8 @@ if st.session_state.current_page == "Identification":
         else:
             st.warning("Sorry, detailed information for this result is not available in our database.")
 
-
 elif st.session_state.current_page == "About":
+    # ... (Konten halaman About sama seperti sebelumnya)
     st.title("💡 About AgroDetect")
     st.write(
         """
@@ -631,7 +593,9 @@ elif st.session_state.current_page == "About":
         "This application is an initial diagnostic aid and does not replace consultation with professional agricultural experts."
     )
 
+
 elif st.session_state.current_page == "Team":
+    # ... (Konten halaman Team sama seperti sebelumnya)
     st.title("👨‍💻 Development Team")
     st.write("AgroDetect is the result of a Capstone project by **Team Laskar AI**.")
     st.divider()
@@ -654,6 +618,7 @@ elif st.session_state.current_page == "Team":
         """
     )
     st.info("Together, we create innovation for better agriculture.")
+
 
 st.markdown("---")
 st.markdown(
