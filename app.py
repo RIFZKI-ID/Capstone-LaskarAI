@@ -262,7 +262,7 @@ def preprocess_image(_image: Image.Image) -> np.ndarray:
     """Memproses gambar yang diunggah untuk prediksi model."""
     if _image.mode != "RGB":
         _image = _image.convert("RGB")
-    target_size = (128, 128)
+    target_size = (224, 224)
     _image = _image.resize(target_size)
     img_array = np.array(_image)
     img_array = img_array / 255.0
@@ -329,7 +329,7 @@ if "threshold_message" not in st.session_state:
 
 # --- NAVIGASI SIDEBAR ---
 with st.sidebar:
-    st.image("https://emojigraph.org/media/apple/leafy-green_1f96c.png", width=80)
+    st.image("logo/leafy-green_1f96c.png", width=80)
     st.markdown("## 🌱 **AgroDetect**")
     st.caption("_Asisten Kebun Cerdas Anda_")
     st.divider()
