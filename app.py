@@ -13,10 +13,8 @@ st.set_page_config(
 
 # --- Path Model ML & Ambang Batas ---
 MODEL_PATH = "best_model.keras"
-CONFIDENCE_THRESHOLD = 80
-VERIFICATION_THRESHOLD = 70
-# TAMBAHAN: Ambang batas untuk persentase piksel hijau
-GREEN_PIXEL_PERCENTAGE_THRESHOLD = 10 
+# REVISI: Menggunakan satu ambang batas keyakinan tunggal sebesar 80%
+CONFIDENCE_THRESHOLD = 80 
 
 # --- Data Penyakit & Informasi (Tetap sama) ---
 CLASS_NAMES = [
@@ -135,31 +133,6 @@ disease_info = {
     },
 }
 
-# --- FUNGSI BARU UNTUK VALIDASI GAMBAR ---
-def is_likely_plant_image(image: Image.Image, threshold: int) -> bool:
-    """
-    Menganalisis gambar untuk menentukan apakah kemungkinan besar itu adalah daun.
-    Menggunakan heuristik sederhana berdasarkan persentase piksel hijau.
-    """
-    # Mengubah ukuran gambar untuk analisis cepat
-    img = image.copy().resize((100, 100))
-    img_array = np.array(img)
-
-    # Menghindari pembagian dengan nol untuk gambar kosong
-    if img_array.size == 0:
-        return False
-
-    # Heuristik: piksel hijau jika G > R dan G > B
-    # Ini adalah cara sederhana dan cepat untuk mendeteksi warna kehijauan
-    green_pixels = np.sum((img_array[:, :, 1] > img_array[:, :, 0]) & (img_array[:, :, 1] > img_array[:, :, 2]))
-    total_pixels = img_array.shape[0] * img_array.shape[1]
-    
-    green_percentage = (green_pixels / total_pixels) * 100
-    
-    st.write(f"Debug: Persentase hijau terdeteksi: {green_percentage:.2f}%") # Baris ini bisa dihapus nanti
-    
-    return green_percentage >= threshold
-
 # --- Fungsi Praproses Gambar ---
 def preprocess_image(_image: Image.Image) -> np.ndarray:
     """Memproses gambar yang diunggah untuk prediksi model."""
@@ -265,40 +238,34 @@ if st.session_state.current_page == "Identifikasi":
             ):
                 reset_app_state() 
 
-                # --- VALIDASI GAMBAR SEBELUM PREDIKSI ---
-                if not is_likely_plant_image(image, GREEN_PIXEL_PERCENTAGE_THRESHOLD):
-                    st.session_state.threshold_message = (
-                        "⚠️ **Validasi Gagal!** Gambar yang diunggah tidak tampak seperti daun tanaman. "
-                        f"Pastikan gambar fokus pada daun dan memiliki minimal {GREEN_PIXEL_PERCENTAGE_THRESHOLD}% kehijauan. "
-                        "Silakan coba lagi dengan gambar yang berbeda."
-                    )
-                    st.session_state.identification_done = True # Set true untuk menampilkan pesan
-                else:
-                    with st.spinner("⏳ Analisis sedang berlangsung..."):
-                        try:
-                            processed_image = preprocess_image(image)
-                            predictions = model.predict(processed_image)
-                            predicted_class_index = np.argmax(predictions, axis=1)[0]
-                            confidence = predictions[0][predicted_class_index] * 100
+                with st.spinner("⏳ Analisis sedang berlangsung..."):
+                    try:
+                        processed_image = preprocess_image(image)
+                        predictions = model.predict(processed_image)
+                        predicted_class_index = np.argmax(predictions, axis=1)[0]
+                        confidence = predictions[0][predicted_class_index] * 100
 
+                        # --- LOGIKA VALIDASI BARU ---
+                        if confidence < CONFIDENCE_THRESHOLD:
+                            st.session_state.threshold_message = (
+                                f"⚠️ **Tidak Dapat Diidentifikasi!**\n\n"
+                                f"Model tidak dapat mengenali gambar ini dengan keyakinan yang cukup (keyakinan tertinggi < {CONFIDENCE_THRESHOLD}%). "
+                                f"Hal ini bisa terjadi karena:\n"
+                                f"- Gambar bukan daun tomat, kentang, atau paprika.\n"
+                                f"- Kualitas gambar kurang jelas (buram, terlalu gelap/terang).\n\n"
+                                f"Mohon unggah gambar daun yang jelas dari tanaman yang didukung."
+                            )
+                        else:
+                            st.session_state.threshold_message = None
                             st.session_state.predictions_state = predictions
                             st.session_state.confidence_state = confidence
                             st.session_state.predicted_class_name_state = CLASS_NAMES[predicted_class_index]
-                            
-                            if confidence < VERIFICATION_THRESHOLD:
-                                st.session_state.threshold_message = (
-                                    f"Model tidak dapat memverifikasi dengan yakin bahwa ini adalah gambar daun tanaman yang didukung, "
-                                    f"atau objek tidak terdeteksi dengan jelas (keyakinan tertinggi: {confidence:.2f}% < {VERIFICATION_THRESHOLD}%). "
-                                    "Mohon coba unggah gambar daun paprika, tomat, atau kentang yang lebih jelas."
-                                )
-                            else:
-                                st.session_state.threshold_message = None
-                            
-                            st.session_state.identification_done = True
+                        
+                        st.session_state.identification_done = True
 
-                        except Exception as e:
-                            st.error(f"❌ **Terjadi kesalahan saat analisis:** {e}. Mohon coba lagi.")
-                            st.session_state.identification_done = False
+                    except Exception as e:
+                        st.error(f"❌ **Terjadi kesalahan saat analisis:** {e}. Mohon coba lagi.")
+                        st.session_state.identification_done = False
                 
                 st.rerun()
 
@@ -321,27 +288,18 @@ if st.session_state.current_page == "Identifikasi":
             display_name = info.get("nama_tampilan", predicted_class_name.replace("_", " ").replace("__", ": "))
             brief_description = info.get("deskripsi_singkat", "Informasi tambahan tidak tersedia.")
 
-            if "healthy" not in predicted_class_name.lower() and confidence >= CONFIDENCE_THRESHOLD:
-                st.error(f"🚨 Terdeteksi: {display_name}")
-                st.metric(label="Tingkat Keyakinan", value=f"{confidence:.2f}%", delta="Penyakit Terdeteksi", delta_color="inverse")
-                st.markdown(f"**Ringkasan:** {brief_description}")
-                if st.button("📖 Lihat Detail Solusi & Penanganan", use_container_width=True):
-                    st.session_state.show_detailed_solution = True
-                    st.rerun()
-            elif "healthy" in predicted_class_name.lower() and confidence >= CONFIDENCE_THRESHOLD:
+            # Logika ini sekarang lebih sederhana karena sudah divalidasi sebelumnya
+            if "healthy" in predicted_class_name.lower():
                 st.success(f"✅ Tanaman Sehat: {display_name}")
                 st.metric(label="Tingkat Keyakinan", value=f"{confidence:.2f}%", delta="Sehat", delta_color="normal")
-                st.markdown(f"**Ringkasan:** {brief_description}")
-                if st.button("💚 Tips Menjaga Kesehatan Tanaman", use_container_width=True):
-                    st.session_state.show_detailed_solution = True
-                    st.rerun()
             else:
-                st.warning(f"❓ Keyakinan Rendah untuk: {display_name}")
-                st.metric(label="Keyakinan Tertinggi", value=f"{confidence:.2f}%", delta=f"Di bawah {CONFIDENCE_THRESHOLD}% untuk kondisi ini", delta_color="off")
-                st.write("Model mengidentifikasi potensi kondisi namun dengan keyakinan lebih rendah. Untuk kepastian lebih, pastikan gambar jelas atau konsultasikan dengan ahli.")
-                if st.button(f"📖 Lihat Detail Potensial untuk {display_name}", use_container_width=True):
-                    st.session_state.show_detailed_solution = True
-                    st.rerun()
+                st.error(f"🚨 Terdeteksi: {display_name}")
+                st.metric(label="Tingkat Keyakinan", value=f"{confidence:.2f}%", delta="Penyakit Terdeteksi", delta_color="inverse")
+            
+            st.markdown(f"**Ringkasan:** {brief_description}")
+            if st.button("📖 Lihat Detail Solusi & Penanganan", use_container_width=True):
+                st.session_state.show_detailed_solution = True
+                st.rerun()
 
         st.markdown("---")
         if st.button(
