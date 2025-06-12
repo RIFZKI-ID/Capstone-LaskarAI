@@ -15,6 +15,8 @@ st.set_page_config(
 MODEL_PATH = "best_model.keras"
 CONFIDENCE_THRESHOLD = 80
 VERIFICATION_THRESHOLD = 70
+# TAMBAHAN: Ambang batas untuk persentase piksel hijau
+GREEN_PIXEL_PERCENTAGE_THRESHOLD = 10 
 
 # --- Data Penyakit & Informasi (Tetap sama) ---
 CLASS_NAMES = [
@@ -133,6 +135,31 @@ disease_info = {
     },
 }
 
+# --- FUNGSI BARU UNTUK VALIDASI GAMBAR ---
+def is_likely_plant_image(image: Image.Image, threshold: int) -> bool:
+    """
+    Menganalisis gambar untuk menentukan apakah kemungkinan besar itu adalah daun.
+    Menggunakan heuristik sederhana berdasarkan persentase piksel hijau.
+    """
+    # Mengubah ukuran gambar untuk analisis cepat
+    img = image.copy().resize((100, 100))
+    img_array = np.array(img)
+
+    # Menghindari pembagian dengan nol untuk gambar kosong
+    if img_array.size == 0:
+        return False
+
+    # Heuristik: piksel hijau jika G > R dan G > B
+    # Ini adalah cara sederhana dan cepat untuk mendeteksi warna kehijauan
+    green_pixels = np.sum((img_array[:, :, 1] > img_array[:, :, 0]) & (img_array[:, :, 1] > img_array[:, :, 2]))
+    total_pixels = img_array.shape[0] * img_array.shape[1]
+    
+    green_percentage = (green_pixels / total_pixels) * 100
+    
+    st.write(f"Debug: Persentase hijau terdeteksi: {green_percentage:.2f}%") # Baris ini bisa dihapus nanti
+    
+    return green_percentage >= threshold
+
 # --- Fungsi Praproses Gambar ---
 def preprocess_image(_image: Image.Image) -> np.ndarray:
     """Memproses gambar yang diunggah untuk prediksi model."""
@@ -173,7 +200,7 @@ def reset_app_state():
 if "current_page" not in st.session_state:
     st.session_state.current_page = "Identifikasi"
 if "identification_done" not in st.session_state:
-    reset_app_state() # Panggil fungsi reset untuk inisialisasi awal
+    reset_app_state()
 
 # --- NAVIGASI SIDEBAR ---
 with st.sidebar:
@@ -184,7 +211,6 @@ with st.sidebar:
 
     if st.button("🏡 Identifikasi Tanaman", use_container_width=True, type="primary" if st.session_state.current_page == "Identifikasi" else "secondary"):
         st.session_state.current_page = "Identifikasi"
-        # Tidak perlu reset di sini, biarkan alur halaman yang menanganinya
         st.rerun()
 
     if st.button("💡 Tentang AgroDetect", use_container_width=True, type="primary" if st.session_state.current_page == "Tentang" else "secondary"):
@@ -208,7 +234,6 @@ if st.session_state.current_page == "Identifikasi":
     st.subheader("📸 Unggah Foto Daun")
     st.write("Seret & lepas gambar di sini, atau klik untuk memilih file.")
     
-    # REVISI: Menggunakan file_uploader secara langsung tanpa on_change
     uploaded_file = st.file_uploader(
         "Pilih gambar daun (JPG, PNG):",
         type=["jpg", "jpeg", "png"],
@@ -216,7 +241,6 @@ if st.session_state.current_page == "Identifikasi":
     )
 
     if uploaded_file is None:
-        # Reset state jika tidak ada file (misalnya setelah menekan tombol "Analisis Gambar Lain")
         if st.session_state.identification_done:
             reset_app_state()
         st.markdown(
@@ -239,36 +263,44 @@ if st.session_state.current_page == "Identifikasi":
                 use_container_width=True,
                 type="primary",
             ):
-                reset_app_state() # Selalu reset sebelum analisis baru
+                reset_app_state() 
 
-                with st.spinner("⏳ Analisis sedang berlangsung..."):
-                    try:
-                        processed_image = preprocess_image(image)
-                        predictions = model.predict(processed_image)
-                        predicted_class_index = np.argmax(predictions, axis=1)[0]
-                        confidence = predictions[0][predicted_class_index] * 100
+                # --- VALIDASI GAMBAR SEBELUM PREDIKSI ---
+                if not is_likely_plant_image(image, GREEN_PIXEL_PERCENTAGE_THRESHOLD):
+                    st.session_state.threshold_message = (
+                        "⚠️ **Validasi Gagal!** Gambar yang diunggah tidak tampak seperti daun tanaman. "
+                        f"Pastikan gambar fokus pada daun dan memiliki minimal {GREEN_PIXEL_PERCENTAGE_THRESHOLD}% kehijauan. "
+                        "Silakan coba lagi dengan gambar yang berbeda."
+                    )
+                    st.session_state.identification_done = True # Set true untuk menampilkan pesan
+                else:
+                    with st.spinner("⏳ Analisis sedang berlangsung..."):
+                        try:
+                            processed_image = preprocess_image(image)
+                            predictions = model.predict(processed_image)
+                            predicted_class_index = np.argmax(predictions, axis=1)[0]
+                            confidence = predictions[0][predicted_class_index] * 100
 
-                        st.session_state.predictions_state = predictions
-                        st.session_state.confidence_state = confidence
-                        st.session_state.predicted_class_name_state = CLASS_NAMES[predicted_class_index]
-                        
-                        # Logika ambang batas
-                        if confidence < VERIFICATION_THRESHOLD:
-                            st.session_state.threshold_message = (
-                                f"Model tidak dapat memverifikasi dengan yakin bahwa ini adalah gambar daun tanaman yang didukung, "
-                                f"atau objek tidak terdeteksi dengan jelas (keyakinan tertinggi: {confidence:.2f}% < {VERIFICATION_THRESHOLD}%). "
-                                "Mohon coba unggah gambar daun paprika, tomat, atau kentang yang lebih jelas."
-                            )
-                        else:
-                            st.session_state.threshold_message = None
-                        
-                        st.session_state.identification_done = True
+                            st.session_state.predictions_state = predictions
+                            st.session_state.confidence_state = confidence
+                            st.session_state.predicted_class_name_state = CLASS_NAMES[predicted_class_index]
+                            
+                            if confidence < VERIFICATION_THRESHOLD:
+                                st.session_state.threshold_message = (
+                                    f"Model tidak dapat memverifikasi dengan yakin bahwa ini adalah gambar daun tanaman yang didukung, "
+                                    f"atau objek tidak terdeteksi dengan jelas (keyakinan tertinggi: {confidence:.2f}% < {VERIFICATION_THRESHOLD}%). "
+                                    "Mohon coba unggah gambar daun paprika, tomat, atau kentang yang lebih jelas."
+                                )
+                            else:
+                                st.session_state.threshold_message = None
+                            
+                            st.session_state.identification_done = True
 
-                    except Exception as e:
-                        st.error(f"❌ **Terjadi kesalahan saat analisis:** {e}. Mohon coba lagi.")
-                        st.session_state.identification_done = False # Pastikan state tetap false jika error
+                        except Exception as e:
+                            st.error(f"❌ **Terjadi kesalahan saat analisis:** {e}. Mohon coba lagi.")
+                            st.session_state.identification_done = False
                 
-                st.rerun() # Rerun untuk menampilkan hasil setelah analisis
+                st.rerun()
 
         except Exception as e:
             st.error(f"Gagal memuat atau menampilkan gambar: {e}. Pastikan file valid.")
@@ -312,8 +344,6 @@ if st.session_state.current_page == "Identifikasi":
                     st.rerun()
 
         st.markdown("---")
-        # REVISI: Tombol ini sekarang hanya akan mereset state,
-        # membuat file_uploader menjadi None pada run berikutnya dan membersihkan UI.
         if st.button(
             "🔄 **Analisis Gambar Lain**",
             help="Klik untuk kembali ke halaman unggah.",
