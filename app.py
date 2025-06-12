@@ -13,8 +13,10 @@ st.set_page_config(
 
 # --- Path Model ML & Ambang Batas ---
 MODEL_PATH = "best_model.keras"
-# REVISI: Menggunakan satu ambang batas keyakinan tunggal sebesar 80%
-CONFIDENCE_THRESHOLD = 80 
+# Tingkat keyakinan minimum untuk prediksi utama
+CONFIDENCE_THRESHOLD = 80
+# PERBAIKAN: Jarak minimum antara prediksi teratas dan kedua untuk memastikan model tidak "bingung"
+CERTAINTY_GAP_THRESHOLD = 25 
 
 # --- Data Penyakit & Informasi (Tetap sama) ---
 CLASS_NAMES = [
@@ -241,25 +243,39 @@ if st.session_state.current_page == "Identifikasi":
                 with st.spinner("⏳ Analisis sedang berlangsung..."):
                     try:
                         processed_image = preprocess_image(image)
-                        predictions = model.predict(processed_image)
-                        predicted_class_index = np.argmax(predictions, axis=1)[0]
-                        confidence = predictions[0][predicted_class_index] * 100
+                        predictions = model.predict(processed_image)[0] # Ambil array probabilitas
+                        
+                        # --- LOGIKA VALIDASI DUA TINGKAT ---
+                        # 1. Urutkan prediksi dari tertinggi ke terendah
+                        sorted_indices = np.argsort(predictions)[::-1]
+                        top_pred_index = sorted_indices[0]
+                        top_pred_confidence = predictions[top_pred_index] * 100
+                        
+                        second_pred_confidence = predictions[sorted_indices[1]] * 100
+                        
+                        # 2. Hitung jarak keyakinan
+                        confidence_gap = top_pred_confidence - second_pred_confidence
 
-                        # --- LOGIKA VALIDASI BARU ---
-                        if confidence < CONFIDENCE_THRESHOLD:
+                        # 3. Terapkan validasi
+                        is_confident = top_pred_confidence >= CONFIDENCE_THRESHOLD
+                        is_certain = confidence_gap >= CERTAINTY_GAP_THRESHOLD
+
+                        if not (is_confident and is_certain):
                             st.session_state.threshold_message = (
-                                f"⚠️ **Tidak Dapat Diidentifikasi!**\n\n"
-                                f"Model tidak dapat mengenali gambar ini dengan keyakinan yang cukup (keyakinan tertinggi < {CONFIDENCE_THRESHOLD}%). "
-                                f"Hal ini bisa terjadi karena:\n"
+                                f"⚠️ **Tidak Dapat Diidentifikasi Secara Akurat!**\n\n"
+                                f"Model tidak dapat mengenali gambar ini dengan keyakinan dan kepastian yang cukup.\n"
+                                f"*(Keyakinan teratas: {top_pred_confidence:.2f}%, Jarak keyakinan: {confidence_gap:.2f}%)*\n\n"
+                                f"**Kemungkinan Penyebab:**\n"
                                 f"- Gambar bukan daun tomat, kentang, atau paprika.\n"
-                                f"- Kualitas gambar kurang jelas (buram, terlalu gelap/terang).\n\n"
-                                f"Mohon unggah gambar daun yang jelas dari tanaman yang didukung."
+                                f"- Kualitas gambar kurang jelas (buram, terlalu gelap/terang).\n"
+                                f"- Model ragu-ragu antara dua kemungkinan penyakit.\n\n"
+                                f"Mohon unggah gambar daun yang lebih jelas dan fokus dari tanaman yang didukung."
                             )
                         else:
                             st.session_state.threshold_message = None
-                            st.session_state.predictions_state = predictions
-                            st.session_state.confidence_state = confidence
-                            st.session_state.predicted_class_name_state = CLASS_NAMES[predicted_class_index]
+                            st.session_state.predictions_state = [predictions] # Simpan dalam list untuk konsistensi
+                            st.session_state.confidence_state = top_pred_confidence
+                            st.session_state.predicted_class_name_state = CLASS_NAMES[top_pred_index]
                         
                         st.session_state.identification_done = True
 
@@ -288,7 +304,6 @@ if st.session_state.current_page == "Identifikasi":
             display_name = info.get("nama_tampilan", predicted_class_name.replace("_", " ").replace("__", ": "))
             brief_description = info.get("deskripsi_singkat", "Informasi tambahan tidak tersedia.")
 
-            # Logika ini sekarang lebih sederhana karena sudah divalidasi sebelumnya
             if "healthy" in predicted_class_name.lower():
                 st.success(f"✅ Tanaman Sehat: {display_name}")
                 st.metric(label="Tingkat Keyakinan", value=f"{confidence:.2f}%", delta="Sehat", delta_color="normal")
@@ -340,11 +355,13 @@ if st.session_state.current_page == "Identifikasi":
             if st.session_state.predictions_state is not None:
                 with st.expander("🔬 **Probabilitas Lengkap (Untuk Ahli)**"):
                     st.write("Berikut adalah daftar probabilitas model untuk setiap kategori, dari tertinggi ke terendah:")
-                    sorted_indices = np.argsort(st.session_state.predictions_state[0])[::-1]
+                    # Ambil kembali array probabilitas dari state
+                    current_predictions = st.session_state.predictions_state[0]
+                    sorted_indices = np.argsort(current_predictions)[::-1]
                     for i in sorted_indices:
-                        prob = st.session_state.predictions_state[0][i] * 100
+                        prob = current_predictions[i] * 100
                         class_disp = disease_info.get(CLASS_NAMES[i], {}).get("nama_tampilan", CLASS_NAMES[i].replace("_", " ").replace("__", ": "))
-                        if i == np.argmax(st.session_state.predictions_state, axis=1)[0]:
+                        if i == np.argmax(current_predictions):
                             st.markdown(f"- **{class_disp}: {prob:.2f}%** (Prediksi Utama)")
                         else:
                             st.write(f"- {class_disp}: {prob:.2f}%")
